@@ -1,0 +1,8 @@
+{ "extensionName": "ScratchNet",
+ "extensionPort": 56765,
+ "blockSpecs": [
+   [" ", "send %s to %s", "sendMsg", "hello", "wiffel"],
+   [" ", "send number %n to %s", "sendMsg", 0, "wiffel"],
+   ["r", "read from %s", "readMsg", "wiffel"],
+ ]
+}
