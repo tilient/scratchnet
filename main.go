@@ -2,43 +2,70 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
-	"github.com/zserge/webview"
 	"html/template"
 	"log"
 	"net/http"
 	"os"
-	"os/exec"
-	"runtime"
 	"strings"
 	"time"
+	"unsafe"
 )
 
-func open(url string) error {
-	var cmd string
-	var args []string
+/*
+#cgo linux CFLAGS: -DWEBVIEW_GTK=1
+#cgo linux pkg-config: gtk+-3.0 webkitgtk-3.0
 
-	switch runtime.GOOS {
-	case "windows":
-		cmd = "cmd"
-		//args = []string{"/c", "start"}
-		args = []string{"/c", "mshta"}
-	case "darwin":
-		cmd = "open"
-	default: // "linux", "freebsd", "openbsd", "netbsd"
-		cmd = "xdg-open"
+#cgo windows CFLAGS: -DWEBVIEW_WINAPI=1
+#cgo windows LDFLAGS: -lole32 -lcomctl32 -loleaut32 -luuid -mwindows
+
+#cgo darwin CFLAGS: -DWEBVIEW_COCOA=1 -x objective-c
+#cgo darwin LDFLAGS: -framework Cocoa -framework WebKit
+
+#include <stdlib.h>
+#include "webview.h"
+*/
+import "C"
+
+//------------------------------------------------------------------
+
+func openWebview(title, url string, w, h int) error {
+	titleStr := C.CString(title)
+	defer C.free(unsafe.Pointer(titleStr))
+	urlStr := C.CString(url)
+	defer C.free(unsafe.Pointer(urlStr))
+	resize := C.int(1)
+	r := C.webview(titleStr, urlStr, C.int(w), C.int(h), resize)
+	if r != 0 {
+		return errors.New("failed to create webview")
 	}
-	args = append(args, url)
-	fmt.Println("*launching*", cmd, args)
-	return exec.Command(cmd, args...).Start()
+	fmt.Println("* webview opened *")
+	return nil
 }
 
 //------------------------------------------------------------------
 
-var templates = template.Must(template.ParseFiles("app.html"))
+var appStr string = `<HTML>
+  <HEAD>
+    <TITLE>Scratch Net</TITLE>
+  </HEAD>
+  <BODY>
+    <h1>ScratchNet</h1>
+    <div>hihaho</div>
+    <hr />
+    <a href="/exit">exit</a>
+    <hr />
+  </BODY>
+</HTML>`
+
+var appTmpl *template.Template = nil
 
 func appHandler(w http.ResponseWriter, r *http.Request) {
-	err := templates.ExecuteTemplate(w, "app.html", nil)
+	if appTmpl == nil {
+		appTmpl, _ = template.New("app").Parse(appStr)
+	}
+	err := appTmpl.Execute(w, nil)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
@@ -107,15 +134,15 @@ func main() {
 		http.FileServer(http.Dir("."))))
 
 	s = &http.Server{
-		Addr:           ":56765",
+		Addr:           ":56763",
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,
 		MaxHeaderBytes: 1 << 20,
 	}
 
 	go func() {
-		webview.Open("Scratch Net", "http://localhost:56765/app",
-			400, 400, true)
+		openWebview("Scratch Net", "http://localhost:56763/app",
+			400, 400)
 	}()
 	log.Fatal(s.ListenAndServe())
 }
