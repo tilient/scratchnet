@@ -10,7 +10,7 @@ import (
 const port = 1876
 
 func client() {
-	BROADCAST_IPv4 := net.IPv4(255, 255, 255, 255)
+	BROADCAST_IPv4 := net.IPv4(192, 168, 0, 255)
 	addr := &net.UDPAddr{
 		IP:   BROADCAST_IPv4,
 		Port: port,
