@@ -17,13 +17,15 @@ func open(url string) error {
 	switch runtime.GOOS {
 	case "windows":
 		cmd = "cmd"
-		args = []string{"/c", "start"}
+		//args = []string{"/c", "start"}
+		args = []string{"/c", "mshta"}
 	case "darwin":
 		cmd = "open"
 	default: // "linux", "freebsd", "openbsd", "netbsd"
 		cmd = "xdg-open"
 	}
 	args = append(args, url)
+	fmt.Println("*launching*", cmd, args)
 	return exec.Command(cmd, args...).Start()
 }
 
@@ -90,8 +92,12 @@ func main() {
 	http.HandleFunc("/reset_all", resetHandler)
 	http.HandleFunc("/sendMsg/", sendMsgHandler)
 	http.HandleFunc("/waitMsg/", waitMsgHandler)
-	http.HandleFunc("/", defaultHandler)
 
-	//go open("http://localhost:56765/view/test")
-	log.Fatalln("ListenAndServe:", http.ListenAndServe(":56765", nil))
+	fs := http.FileServer(http.Dir("."))
+  http.Handle("/", http.StripPrefix("/", fs))
+
+	//http.HandleFunc("/", defaultHandler)
+
+	go open("http://localhost:56769/app")
+	log.Fatalln("ListenAndServe:", http.ListenAndServe(":56769", nil))
 }
