@@ -2,9 +2,11 @@ package main
 
 import (
 	"fmt"
+	"github.com/zserge/webview"
 	"html/template"
 	"log"
 	"net/http"
+	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -87,17 +89,22 @@ func defaultHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	http.HandleFunc("/app", appHandler)
-	http.HandleFunc("/poll", pollHandler)
-	http.HandleFunc("/reset_all", resetHandler)
-	http.HandleFunc("/sendMsg/", sendMsgHandler)
-	http.HandleFunc("/waitMsg/", waitMsgHandler)
+	go func() {
+		http.HandleFunc("/app", appHandler)
+		http.HandleFunc("/poll", pollHandler)
+		http.HandleFunc("/reset_all", resetHandler)
+		http.HandleFunc("/sendMsg/", sendMsgHandler)
+		http.HandleFunc("/waitMsg/", waitMsgHandler)
 
-	fs := http.FileServer(http.Dir("."))
-  http.Handle("/", http.StripPrefix("/", fs))
+		http.Handle("/", http.StripPrefix("/",
+			http.FileServer(http.Dir("."))))
 
-	//http.HandleFunc("/", defaultHandler)
-
-	go open("http://localhost:56769/app")
-	log.Fatalln("ListenAndServe:", http.ListenAndServe(":56769", nil))
+		http.HandleFunc("/exit", func(w http.ResponseWriter, r *http.Request) {
+			os.Exit(0)
+		})
+		//http.HandleFunc("/", defaultHandler)
+		//go open("http://localhost:56769/app")
+		log.Fatalln("ListenAndServe:", http.ListenAndServe(":56765", nil))
+	}()
+	webview.Open("Scratch Net", "http://localhost:56765/app", 400, 300, false)
 }
