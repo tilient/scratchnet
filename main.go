@@ -41,25 +41,41 @@ func appHandler(w http.ResponseWriter, r *http.Request) {
 //------------------------------------------------------------------
 
 var msgs map[string]string = make(map[string]string)
+var wmsgs map[string]string = make(map[string]string)
 
 func pollHandler(w http.ResponseWriter, r *http.Request) {
+	//fmt.Print(".")
 	for k, v := range msgs {
 		fmt.Fprintf(w, "readMsg/%s %s\n", k, v)
+	}
+	for _, v := range wmsgs {
+		fmt.Fprintf(w, "_busy %s\n", v)
 	}
 	fmt.Fprintln(w)
 	msgs = make(map[string]string)
 }
 
 func resetHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("*reset*", r.RequestURI)
 	msgs = make(map[string]string)
 	fmt.Fprintln(w)
 }
 
 func sendMsgHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("*sendMsg*", r.RequestURI)
 	parts := strings.Split(r.RequestURI, "/")
 	msg := parts[2]
 	to := parts[3]
 	msgs[to] = msg
+	delete(wmsgs, to)
+}
+
+func waitMsgHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("*waitMsg*", r.RequestURI)
+	parts := strings.Split(r.RequestURI, "/")
+	id := parts[2]
+	from := parts[3]
+	wmsgs[from] = id
 }
 
 //------------------------------------------------------------------
@@ -73,6 +89,7 @@ func main() {
 	http.HandleFunc("/poll", pollHandler)
 	http.HandleFunc("/reset_all", resetHandler)
 	http.HandleFunc("/sendMsg/", sendMsgHandler)
+	http.HandleFunc("/waitMsg/", waitMsgHandler)
 	http.HandleFunc("/", defaultHandler)
 
 	//go open("http://localhost:56765/view/test")
