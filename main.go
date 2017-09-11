@@ -42,6 +42,7 @@ func openWebview(title, url string, w, h int) error {
 		return errors.New("failed to create webview")
 	}
 	fmt.Println("* webview opened *")
+	exit()
 	return nil
 }
 
@@ -50,6 +51,12 @@ func openWebview(title, url string, w, h int) error {
 var appStr string = `<html>
   <head>
     <title>Scratch Net</title>
+		<style type="text/css">
+		body {
+	    background: url("/imgs/bg01.jpg") no-repeat center fixed;
+			background-size: cover;
+	  }
+		</style>
   </head>
   <body>
     <h1>ScratchNet</h1>
@@ -117,12 +124,16 @@ func waitMsgHandler(w http.ResponseWriter, r *http.Request) {
 
 var serv *http.Server
 
-func exitHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("*exit* >>", r.RequestURI)
+func exit() {
 	ctx, _ := context.WithTimeout(
 		context.Background(), 2*time.Millisecond)
 	serv.Shutdown(ctx)
 	os.Exit(0)
+}
+
+func exitHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("*exit* >>", r.RequestURI)
+	exit()
 }
 
 func main() {
@@ -144,7 +155,7 @@ func main() {
 
 	go func() {
 		openWebview("Scratch Net", "http://localhost:56763/app",
-			400, 400)
+			600, 400)
 	}()
 	log.Fatal(serv.ListenAndServe())
 }
