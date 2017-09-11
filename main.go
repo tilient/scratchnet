@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"github.com/zserge/webview"
 	"html/template"
@@ -10,6 +11,7 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+	"time"
 )
 
 func open(url string) error {
@@ -84,27 +86,36 @@ func waitMsgHandler(w http.ResponseWriter, r *http.Request) {
 
 //------------------------------------------------------------------
 
-func defaultHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("*default* >>", r.RequestURI)
+var s *http.Server
+
+func exitHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("*exit* >>", r.RequestURI)
+	ctx, _ := context.WithTimeout(
+		context.Background(), 2*time.Millisecond)
+	s.Shutdown(ctx)
+	os.Exit(0)
 }
 
 func main() {
+	http.HandleFunc("/app", appHandler)
+	http.HandleFunc("/poll", pollHandler)
+	http.HandleFunc("/reset_all", resetHandler)
+	http.HandleFunc("/sendMsg/", sendMsgHandler)
+	http.HandleFunc("/waitMsg/", waitMsgHandler)
+	http.HandleFunc("/exit", exitHandler)
+	http.Handle("/", http.StripPrefix("/",
+		http.FileServer(http.Dir("."))))
+
+	s = &http.Server{
+		Addr:           ":56765",
+		ReadTimeout:    10 * time.Second,
+		WriteTimeout:   10 * time.Second,
+		MaxHeaderBytes: 1 << 20,
+	}
+
 	go func() {
-		http.HandleFunc("/app", appHandler)
-		http.HandleFunc("/poll", pollHandler)
-		http.HandleFunc("/reset_all", resetHandler)
-		http.HandleFunc("/sendMsg/", sendMsgHandler)
-		http.HandleFunc("/waitMsg/", waitMsgHandler)
-
-		http.Handle("/", http.StripPrefix("/",
-			http.FileServer(http.Dir("."))))
-
-		http.HandleFunc("/exit", func(w http.ResponseWriter, r *http.Request) {
-			os.Exit(0)
-		})
-		//http.HandleFunc("/", defaultHandler)
-		//go open("http://localhost:56769/app")
-		log.Fatalln("ListenAndServe:", http.ListenAndServe(":56765", nil))
+		webview.Open("Scratch Net", "http://localhost:56765/app",
+			400, 400, true)
 	}()
-	webview.Open("Scratch Net", "http://localhost:56765/app", 400, 300, false)
+	log.Fatal(s.ListenAndServe())
 }
