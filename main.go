@@ -147,14 +147,14 @@ func main() {
 		http.FileServer(http.Dir("."))))
 
 	serv = &http.Server{
-		Addr:           ":56763",
+		Addr:           ":56765",
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,
 		MaxHeaderBytes: 1 << 20,
 	}
 
 	go func() {
-		openWebview("Scratch Net", "http://localhost:56763/app",
+		openWebview("Scratch Net", "http://localhost:56765/app",
 			600, 400)
 	}()
 	log.Fatal(serv.ListenAndServe())
