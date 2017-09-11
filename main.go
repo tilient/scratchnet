@@ -28,7 +28,7 @@ import (
 */
 import "C"
 
-//------------------------------------------------------------------
+//---------------------------------------------------------
 
 func openWebview(title, url string, w, h int) error {
 	titleStr := C.CString(title)
@@ -36,7 +36,8 @@ func openWebview(title, url string, w, h int) error {
 	urlStr := C.CString(url)
 	defer C.free(unsafe.Pointer(urlStr))
 	resize := C.int(1)
-	r := C.webview(titleStr, urlStr, C.int(w), C.int(h), resize)
+	r := C.webview(titleStr, urlStr,
+		C.int(w), C.int(h), resize)
 	if r != 0 {
 		return errors.New("failed to create webview")
 	}
@@ -44,20 +45,20 @@ func openWebview(title, url string, w, h int) error {
 	return nil
 }
 
-//------------------------------------------------------------------
+//---------------------------------------------------------
 
-var appStr string = `<HTML>
-  <HEAD>
-    <TITLE>Scratch Net</TITLE>
-  </HEAD>
-  <BODY>
+var appStr string = `<html>
+  <head>
+    <title>Scratch Net</title>
+  </head>
+  <body>
     <h1>ScratchNet</h1>
-    <div>hihaho</div>
+    <div>een eerste testje ...</div>
     <hr />
     <a href="/exit">exit</a>
     <hr />
-  </BODY>
-</HTML>`
+  </body>
+</html>`
 
 var appTmpl *template.Template = nil
 
@@ -67,11 +68,12 @@ func appHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	err := appTmpl.Execute(w, nil)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, err.Error(),
+			http.StatusInternalServerError)
 	}
 }
 
-//------------------------------------------------------------------
+//---------------------------------------------------------
 
 var msgs map[string]string = make(map[string]string)
 var wmsgs map[string]string = make(map[string]string)
@@ -111,15 +113,15 @@ func waitMsgHandler(w http.ResponseWriter, r *http.Request) {
 	wmsgs[from] = id
 }
 
-//------------------------------------------------------------------
+//---------------------------------------------------------
 
-var s *http.Server
+var serv *http.Server
 
 func exitHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("*exit* >>", r.RequestURI)
 	ctx, _ := context.WithTimeout(
 		context.Background(), 2*time.Millisecond)
-	s.Shutdown(ctx)
+	serv.Shutdown(ctx)
 	os.Exit(0)
 }
 
@@ -133,7 +135,7 @@ func main() {
 	http.Handle("/", http.StripPrefix("/",
 		http.FileServer(http.Dir("."))))
 
-	s = &http.Server{
+	serv = &http.Server{
 		Addr:           ":56763",
 		ReadTimeout:    10 * time.Second,
 		WriteTimeout:   10 * time.Second,
@@ -144,5 +146,7 @@ func main() {
 		openWebview("Scratch Net", "http://localhost:56763/app",
 			400, 400)
 	}()
-	log.Fatal(s.ListenAndServe())
+	log.Fatal(serv.ListenAndServe())
 }
+
+//---------------------------------------------------------
