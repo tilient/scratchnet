@@ -4,36 +4,24 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"strconv"
+	"strings"
 	"time"
 )
-
-func GetOutboundIP() net.IP {
-	conn, err := net.Dial("udp", "8.8.8.8:80")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer conn.Close()
-
-	localAddr := conn.LocalAddr().(*net.UDPAddr)
-	fmt.Println(localAddr)
-	return localAddr.IP
-}
 
 const port = 1876
 
 func client() {
-	GetOutboundIP()
-	BROADCAST_IPv4 := net.IPv4(192, 168, 0, 255)
+	BROADCAST_IPv4, ip := outboundBroadcastIP()
 	addr := &net.UDPAddr{
 		IP:   BROADCAST_IPv4,
 		Port: port,
 	}
 	socket, _ := net.DialUDP("udp4", nil, addr)
-	data := []byte("aaaaaaaaaa\n")
+	data := []byte(ip.String())
 	for {
-		time.Sleep(5000 * time.Millisecond)
 		socket.Write(data)
-		fmt.Print(".")
+		time.Sleep(15 * time.Second)
 	}
 }
 
@@ -47,14 +35,58 @@ func server() {
 	}
 	for {
 		data := make([]byte, 16)
-		_, remoteAddr, _ := socket.ReadFromUDP(data)
-		fmt.Println("remoteAddr:", remoteAddr)
-		fmt.Println("      data:", data)
-		fmt.Println("    string(data):", string(data))
+		n, _, _ := socket.ReadFromUDP(data)
+		fmt.Println(" str(data):", string(data[:n]))
 	}
 }
 
 func main() {
+	bip, ip := outboundBroadcastIP()
+	fmt.Println("broadcast IP =", bip, " IP =", ip)
 	go client()
 	server()
+}
+
+func outboundBroadcastIP() (net.IP, net.IP) {
+	outboundIP := GetOutboundIP()
+	interfaces, _ := net.Interfaces()
+	for _, intf := range interfaces {
+		addrs, _ := intf.Addrs()
+		for _, addr := range addrs {
+			ipv4Addr, _, _ := net.ParseCIDR(addr.String())
+			if ipv4Addr.String() == outboundIP.String() {
+				return broadcastIP(addr.String()), outboundIP
+			}
+		}
+	}
+	return nil, outboundIP
+}
+
+func GetOutboundIP() net.IP {
+	conn, err := net.Dial("udp", "8.8.8.8:80")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer conn.Close()
+
+	localAddr := conn.LocalAddr().(*net.UDPAddr)
+	return localAddr.IP
+}
+
+func broadcastIP(s string) net.IP {
+	i := strings.Index(s, "/")
+	addr, mask := s[:i], s[i+1:]
+	ip := net.ParseIP(addr)
+	n, _ := strconv.Atoi(mask)
+	m := net.CIDRMask(n, 8*net.IPv4len)
+	bip := make(net.IP, len(ip))
+	offset := len(ip) - len(m)
+	for i, v := range ip {
+		bip[i] = v
+		mi := i - offset
+		if mi >= 0 {
+			bip[i] |= ^m[mi]
+		}
+	}
+	return bip
 }
