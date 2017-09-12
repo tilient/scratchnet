@@ -1,17 +1,19 @@
-# scratchnet
+scratchnet
+==========
 
 A helper application for Scratch.
+
 It enables multiple machines to talk with each other from within Scratch.
 
 downloads
 ---------
 
-scratch extension file: https://raw.githubusercontent.com/tilient/scratchnet/master/scratchnet.s2e
+scratch extension file: xxx
 
 
-linux binary (64-bit): https://github.com/tilient/scratchnet/raw/master/builds/windows64/main
+linux binary (64-bit): xxx
 
-windows binary (64-bit): https://github.com/tilient/scratchnet/raw/master/builds/windows64/main.exe
+windows binary (64-bit): xxx
 
 to build for windows
 --------------------
