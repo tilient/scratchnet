@@ -9,6 +9,8 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -120,20 +122,34 @@ func waitMsgHandler(w http.ResponseWriter, r *http.Request) {
 
 var serv *http.Server
 
+func openUrlHandler(w http.ResponseWriter, r *http.Request) {
+	url := strings.TrimPrefix(r.RequestURI, "/openurl")
+	url = "http://localhost:56765" + url
+	fmt.Println("*openUrl*", r.RequestURI, url)
+	openUrl(url)
+	http.Redirect(w, r, "/app", http.StatusFound)
+}
+
 func exit() {
 	ctx, _ := context.WithTimeout(
-		context.Background(), 2*time.Millisecond)
+		context.Background(), 1*time.Second)
 	serv.Shutdown(ctx)
 	os.Exit(0)
 }
 
 func exitHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Println("*exit* >>", r.RequestURI)
+	http.Redirect(w, r,
+		"http://tilient.github.io/scratchnet/", http.StatusFound)
+	if f, ok := w.(http.Flusher); ok {
+		f.Flush()
+	}
 	exit()
 }
 
 func main() {
 	http.HandleFunc("/app", appHandler)
+	http.HandleFunc("/openurl/", openUrlHandler)
 	http.HandleFunc("/poll", pollHandler)
 	http.HandleFunc("/reset_all", resetHandler)
 	http.HandleFunc("/sendMsg/", sendMsgHandler)
@@ -232,6 +248,25 @@ func broadcastIP(s string) net.IP {
 		}
 	}
 	return bip
+}
+
+//---------------------------------------------------------
+
+func openUrl(url string) error {
+	var cmd string
+	var args []string
+
+	switch runtime.GOOS {
+	case "windows":
+		cmd = "cmd"
+		args = []string{"/c", "start"}
+	case "darwin":
+		cmd = "open"
+	default: // "linux", "freebsd", "openbsd", "netbsd"
+		cmd = "xdg-open"
+	}
+	args = append(args, url)
+	return exec.Command(cmd, args...).Start()
 }
 
 //---------------------------------------------------------
