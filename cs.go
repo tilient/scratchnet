@@ -9,12 +9,12 @@ import (
 	"time"
 )
 
-const port = 1876
+const port = 56865
 
-func client() {
-	BROADCAST_IPv4, ip := outboundBroadcastIP()
+func sender() {
+	bip, ip := outboundBroadcastIP()
 	addr := &net.UDPAddr{
-		IP:   BROADCAST_IPv4,
+		IP:   bip,
 		Port: port,
 	}
 	socket, _ := net.DialUDP("udp4", nil, addr)
@@ -25,7 +25,7 @@ func client() {
 	}
 }
 
-func server() {
+func listener() {
 	socket, err := net.ListenUDP("udp4", &net.UDPAddr{
 		IP:   net.IPv4(0, 0, 0, 0),
 		Port: port,
@@ -43,8 +43,8 @@ func server() {
 func main() {
 	bip, ip := outboundBroadcastIP()
 	fmt.Println("broadcast IP =", bip, " IP =", ip)
-	go client()
-	server()
+	go sender()
+	listener()
 }
 
 func outboundBroadcastIP() (net.IP, net.IP) {
@@ -81,11 +81,10 @@ func broadcastIP(s string) net.IP {
 	m := net.CIDRMask(n, 8*net.IPv4len)
 	bip := make(net.IP, len(ip))
 	offset := len(ip) - len(m)
-	for i, v := range ip {
-		bip[i] = v
-		mi := i - offset
-		if mi >= 0 {
-			bip[i] |= ^m[mi]
+	for ix, v := range ip {
+		bip[ix] = v
+		if ix >= offset {
+			bip[ix] |= ^m[ix-offset]
 		}
 	}
 	return bip
