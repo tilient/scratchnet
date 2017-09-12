@@ -3,8 +3,7 @@
 
 to build for windows
 --------------------
-
-using cross-compilation
+on linux using cross-compilation
 
     export CGO_ENABLED=1
     export GOOS=windows
