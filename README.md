@@ -13,6 +13,15 @@ linux binary (64-bit): [scratchnet](https://github.com/tilient/scratchnet/releas
 windows binary (64-bit): [scratchnet.exe](https://github.com/tilient/scratchnet/releases/download/v0.1-alpha/scratchnet.exe)
 
 
+dependencies
+------------
+
+    go get github.com/GeertJohan/go.rice
+    go get github.com/GeertJohan/go.rice/rice
+
+
+    sudo apt install gcc-mingw-w64-x86-64
+
 to build for linux
 ------------------
 
