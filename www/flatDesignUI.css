@@ -70,6 +70,7 @@
 
 body {
   background: #1f253d;
+  padding: 0;
 }
 
 ul {
@@ -297,6 +298,7 @@ header {
 
 .header-menu-tab:hover {
   background: #50597b;
+  line-height: 40px;
   border-bottom: 4px solid #11a8ab;
   text-decoration: none;
 }

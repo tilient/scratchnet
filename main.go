@@ -169,7 +169,7 @@ func main() {
 
 	go func() {
 		openWebview("Scratch Net", "http://localhost:56765/app",
-			640, 350)
+			664, 370)
 	}()
 	log.Fatal(serv.ListenAndServe())
 }
