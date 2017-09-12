@@ -168,8 +168,12 @@ func main() {
 	}
 
 	go func() {
+		w, h := 640, 350
+		if runtime.GOOS == "windows" {
+			w, h = 648, 386
+		}
 		openWebview("Scratch Net",
-			"http://localhost:56765/app", 600, 300)
+			"http://localhost:56765/app", w, h)
 	}()
 	log.Fatal(serv.ListenAndServe())
 }
