@@ -1,9 +1,7 @@
 scratchnet
 ==========
 
-A helper application for Scratch.
-
-It enables multiple machines to talk with each other from within Scratch.
+A extension for Scratch that enables multiple machines to talk with each other from within Scratch.
 
 downloads
 ---------
