@@ -8,12 +8,12 @@ It enables multiple machines to talk with each other from within Scratch.
 downloads
 ---------
 
-scratch extension file: xxx
+scratch extension file: https://github.com/tilient/scratchnet/releases/download/v0.0-alpha/scratchnet.s2e
 
 
-linux binary (64-bit): xxx
+linux binary (64-bit): https://github.com/tilient/scratchnet/releases/download/v0.0-alpha/main.linux.64-bit
 
-windows binary (64-bit): xxx
+windows binary (64-bit): https://github.com/tilient/scratchnet/releases/download/v0.0-alpha/main.exe.windows.64-bit.exe
 
 to build for windows
 --------------------
