@@ -15,6 +15,14 @@ linux binary (64-bit): xxx
 
 windows binary (64-bit): xxx
 
+
+to build for linux
+------------------
+
+    go build
+    rice append --exec scratchnet
+
+
 to build for windows
 --------------------
 
@@ -26,4 +34,5 @@ needs _mingw_: install _gcc-mingw-w64-x86-64_
     export GOOS=windows
     export GOARCH=amd64
     export CC=x86_64-w64-mingw32-gcc
-    go build -ldflags "-H windowsgui" -o main.exe main.go
+    go build -ldflags "-H windowsgui" -o scratchnet.exe
+    rice append --exec scratchnet.exe

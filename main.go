@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 	"unsafe"
+
+	"github.com/GeertJohan/go.rice"
 )
 
 /*
@@ -50,30 +52,22 @@ func openWebview(title, url string, w, h int) error {
 
 //---------------------------------------------------------
 
-var appStr string = `<html>
-  <head>
-    <title>Scratch Net</title>
-		<style type="text/css">
-		body {
-	    background: url("/imgs/bg01.jpg") no-repeat center fixed;
-			background-size: cover;
-	  }
-		</style>
-  </head>
-  <body>
-    <h1>ScratchNet</h1>
-    <div>een eerste testje ...</div>
-    <hr />
-    <a href="/exit">exit</a>
-    <hr />
-  </body>
-</html>`
-
 var appTmpl *template.Template = nil
 
 func appHandler(w http.ResponseWriter, r *http.Request) {
 	if appTmpl == nil {
-		appTmpl, _ = template.New("app").Parse(appStr)
+		box, err := rice.FindBox("www")
+		if err != nil {
+			log.Fatal(err)
+		}
+		appStr, err := box.String("app.html")
+		if err != nil {
+			log.Fatal(err)
+		}
+		appTmpl, err = template.New("app").Parse(appStr)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 	err := appTmpl.Execute(w, nil)
 	if err != nil {
@@ -145,8 +139,10 @@ func main() {
 	http.HandleFunc("/sendMsg/", sendMsgHandler)
 	http.HandleFunc("/waitMsg/", waitMsgHandler)
 	http.HandleFunc("/exit", exitHandler)
-	http.Handle("/", http.StripPrefix("/",
-		http.FileServer(http.Dir("."))))
+	//http.Handle("/", http.FileServer(http.Dir("www")))
+
+	http.Handle("/", http.FileServer(
+		rice.MustFindBox("www").HTTPBox()))
 
 	serv = &http.Server{
 		Addr:           ":56765",
