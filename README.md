@@ -9,9 +9,9 @@ downloads
 scratch extension file: https://raw.githubusercontent.com/tilient/scratchnet/master/scratchnet.s2e
 
 
-linux (64-bit): https://github.com/tilient/scratchnet/raw/master/builds/windows64/main
+linux binary (64-bit): https://github.com/tilient/scratchnet/raw/master/builds/windows64/main
 
-windows (64-bit): https://github.com/tilient/scratchnet/raw/master/builds/windows64/main.exe
+windows binary (64-bit): https://github.com/tilient/scratchnet/raw/master/builds/windows64/main.exe
 
 to build for windows
 --------------------
