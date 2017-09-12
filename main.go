@@ -168,8 +168,8 @@ func main() {
 	}
 
 	go func() {
-		openWebview("Scratch Net", "http://localhost:56765/app",
-			664, 370)
+		openWebview("Scratch Net",
+			"http://localhost:56765/app", 600, 300)
 	}()
 	log.Fatal(serv.ListenAndServe())
 }
