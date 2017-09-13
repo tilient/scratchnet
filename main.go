@@ -223,33 +223,43 @@ func wsServer(ws *websocket.Conn) {
 	for {
 		msg, err := r.ReadString('\n')
 		if err != nil {
-			fmt.Println("*wsServerLoop*err:", err)
+			fmt.Printf("*wsServerLoop*err:>>%s<<\n", err)
 			return
 		}
 		if len(msg) > 0 {
-			fmt.Println("*wsServerLoop*msg:", msg)
-			ws.Write([]byte("alert('Wiffeltje')"))
+			msg = strings.TrimSpace(msg)
+			fmt.Printf("*wsServerLoop*msg:>>%s<<\n", msg)
+			switch msg {
+			case "exit":
+				exit()
+			case "openurl":
+				wsOpenUrl(r)
+			default:
+				ws.Write([]byte("alert('Wiffeltje')"))
+			}
 		}
 	}
+}
+
+func wsOpenUrl(r *bufio.Reader) {
+	url := ""
+	for len(url) < 1 {
+		var err error
+		url, err = r.ReadString('\n')
+		if err != nil {
+			fmt.Printf("*openUrl*err:>>%s<<\n", err)
+		}
+		url = strings.TrimSpace(url)
+	}
+	fmt.Printf("*openUrl*msg:>>%s<<\n", url)
+	url = "http://localhost:56765" + url
+	fmt.Println("*openUrl*", url)
+	openUrl(url)
 }
 
 //---------------------------------------------------------
 
 var serv *http.Server
-
-func openUrlHandler(w http.ResponseWriter, r *http.Request) {
-	url := strings.TrimPrefix(r.RequestURI, "/openurl")
-	url = "http://localhost:56765" + url
-	fmt.Println("*openUrl*", r.RequestURI, url)
-	openUrl(url)
-}
-
-func downloadHandler(w http.ResponseWriter, r *http.Request) {
-	url := strings.TrimPrefix(r.RequestURI, "/download")
-	url = "http://localhost:56765" + url
-	fmt.Println("*openUrl*", r.RequestURI, url)
-	openUrl(url)
-}
 
 func exit() {
 	ctx, _ := context.WithTimeout(
@@ -258,32 +268,16 @@ func exit() {
 	os.Exit(0)
 }
 
-func exitHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("*exit* >>", r.RequestURI)
-	http.Redirect(w, r,
-		"http://tilient.github.io/scratchnet/", http.StatusFound)
-	if f, ok := w.(http.Flusher); ok {
-		f.Flush()
-	}
-	exit()
-}
-
 func main() {
 	http.Handle("/ws", websocket.Handler(wsServer))
 	http.HandleFunc("/app", appHandler)
-	http.HandleFunc("/openurl/", openUrlHandler)
-	http.HandleFunc("/download/", downloadHandler)
+	http.Handle("/", http.FileServer(
+		rice.MustFindBox("www").HTTPBox()))
+
 	http.HandleFunc("/poll", pollHandler)
 	http.HandleFunc("/reset_all", resetHandler)
 	http.HandleFunc("/sendMsg/", sendMsgHandler)
 	http.HandleFunc("/waitMsg/", waitMsgHandler)
-	http.HandleFunc("/exit", exitHandler)
-	//http.Handle("/", http.FileServer(http.Dir("www")))
-
-	http.Handle("/", http.FileServer(
-		rice.MustFindBox("www").HTTPBox()))
-	//headers := w.Header()
-	//headers["Content-Type"] = []string{"application/octet-stream"}
 
 	serv = &http.Server{
 		Addr:           ":56765",
