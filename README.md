@@ -16,6 +16,7 @@ dependencies
 
     go get github.com/GeertJohan/go.rice
     go get github.com/GeertJohan/go.rice/rice
+    go get golang.org/x/net/websocket
 
 
     sudo apt install gcc-mingw-w64-x86-64
@@ -40,3 +41,4 @@ and execute the following commands.
     export CC=x86_64-w64-mingw32-gcc
     go build -ldflags "-H windowsgui" -o scratchnet.exe
     rice append --exec scratchnet.exe
+

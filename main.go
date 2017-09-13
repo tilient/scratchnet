@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -17,6 +18,7 @@ import (
 	"unsafe"
 
 	"github.com/GeertJohan/go.rice"
+	"golang.org/x/net/websocket"
 )
 
 /*
@@ -33,150 +35,6 @@ import (
 #include "webview.h"
 */
 import "C"
-
-//---------------------------------------------------------
-
-func openWebview(title, url string, w, h int) error {
-	titleStr := C.CString(title)
-	defer C.free(unsafe.Pointer(titleStr))
-	urlStr := C.CString(url)
-	defer C.free(unsafe.Pointer(urlStr))
-	resize := C.int(1)
-	r := C.webview(titleStr, urlStr,
-		C.int(w), C.int(h), resize)
-	if r != 0 {
-		return errors.New("failed to create webview")
-	}
-	fmt.Println("* webview opened *")
-	exit()
-	return nil
-}
-
-//---------------------------------------------------------
-
-var appTmpl *template.Template = nil
-
-func appHandler(w http.ResponseWriter, r *http.Request) {
-	if appTmpl == nil {
-		box, err := rice.FindBox("www")
-		if err != nil {
-			log.Fatal(err)
-		}
-		appStr, err := box.String("app.html")
-		if err != nil {
-			log.Fatal(err)
-		}
-		appTmpl, err = template.New("app").Parse(appStr)
-		if err != nil {
-			log.Fatal(err)
-		}
-	}
-	err := appTmpl.Execute(w, nil)
-	if err != nil {
-		http.Error(w, err.Error(),
-			http.StatusInternalServerError)
-	}
-}
-
-//---------------------------------------------------------
-
-var msgs map[string]string = make(map[string]string)
-var wmsgs map[string]string = make(map[string]string)
-
-func pollHandler(w http.ResponseWriter, r *http.Request) {
-	//fmt.Print(".")
-	for k, v := range msgs {
-		fmt.Fprintf(w, "readMsg/%s %s\n", k, v)
-	}
-	for _, v := range wmsgs {
-		fmt.Fprintf(w, "_busy %s\n", v)
-	}
-	fmt.Fprintln(w)
-	msgs = make(map[string]string)
-}
-
-func resetHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("*reset*", r.RequestURI)
-	msgs = make(map[string]string)
-	fmt.Fprintln(w)
-}
-
-func sendMsgHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("*sendMsg*", r.RequestURI)
-	parts := strings.Split(r.RequestURI, "/")
-	msg := parts[2]
-	to := parts[3]
-	msgs[to] = msg
-	delete(wmsgs, to)
-}
-
-func waitMsgHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("*waitMsg*", r.RequestURI)
-	parts := strings.Split(r.RequestURI, "/")
-	id := parts[2]
-	from := parts[3]
-	wmsgs[from] = id
-}
-
-//---------------------------------------------------------
-
-var serv *http.Server
-
-func openUrlHandler(w http.ResponseWriter, r *http.Request) {
-	url := strings.TrimPrefix(r.RequestURI, "/openurl")
-	url = "http://localhost:56765" + url
-	fmt.Println("*openUrl*", r.RequestURI, url)
-	openUrl(url)
-	http.Redirect(w, r, "/app", http.StatusFound)
-}
-
-func exit() {
-	ctx, _ := context.WithTimeout(
-		context.Background(), 1*time.Second)
-	serv.Shutdown(ctx)
-	os.Exit(0)
-}
-
-func exitHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("*exit* >>", r.RequestURI)
-	http.Redirect(w, r,
-		"http://tilient.github.io/scratchnet/", http.StatusFound)
-	if f, ok := w.(http.Flusher); ok {
-		f.Flush()
-	}
-	exit()
-}
-
-func main() {
-	http.HandleFunc("/app", appHandler)
-	http.HandleFunc("/openurl/", openUrlHandler)
-	http.HandleFunc("/poll", pollHandler)
-	http.HandleFunc("/reset_all", resetHandler)
-	http.HandleFunc("/sendMsg/", sendMsgHandler)
-	http.HandleFunc("/waitMsg/", waitMsgHandler)
-	http.HandleFunc("/exit", exitHandler)
-	//http.Handle("/", http.FileServer(http.Dir("www")))
-
-	http.Handle("/", http.FileServer(
-		rice.MustFindBox("www").HTTPBox()))
-
-	serv = &http.Server{
-		Addr:           ":56765",
-		ReadTimeout:    10 * time.Second,
-		WriteTimeout:   10 * time.Second,
-		MaxHeaderBytes: 1 << 20,
-	}
-
-	go func() {
-		w, h := 640, 350
-		if runtime.GOOS == "windows" {
-			w, h = 648, 386
-		}
-		openWebview("Scratch Net",
-			"http://localhost:56765/app", w, h)
-	}()
-	log.Fatal(serv.ListenAndServe())
-}
 
 //---------------------------------------------------------
 
@@ -271,6 +129,178 @@ func openUrl(url string) error {
 	}
 	args = append(args, url)
 	return exec.Command(cmd, args...).Start()
+}
+
+//---------------------------------------------------------
+
+func openWebview(title, url string, w, h int) error {
+	titleStr := C.CString(title)
+	defer C.free(unsafe.Pointer(titleStr))
+	urlStr := C.CString(url)
+	defer C.free(unsafe.Pointer(urlStr))
+	resize := C.int(1)
+	r := C.webview(titleStr, urlStr,
+		C.int(w), C.int(h), resize)
+	if r != 0 {
+		return errors.New("failed to create webview")
+	}
+	fmt.Println("* webview opened *")
+	exit()
+	return nil
+}
+
+//---------------------------------------------------------
+
+var appTmpl *template.Template = nil
+
+func appHandler(w http.ResponseWriter, r *http.Request) {
+	if appTmpl == nil {
+		box, err := rice.FindBox("www")
+		if err != nil {
+			log.Fatal(err)
+		}
+		appStr, err := box.String("app.html")
+		if err != nil {
+			log.Fatal(err)
+		}
+		appTmpl, err = template.New("app").Parse(appStr)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+	err := appTmpl.Execute(w, nil)
+	if err != nil {
+		http.Error(w, err.Error(),
+			http.StatusInternalServerError)
+	}
+}
+
+//---------------------------------------------------------
+
+var msgs map[string]string = make(map[string]string)
+var wmsgs map[string]string = make(map[string]string)
+
+func pollHandler(w http.ResponseWriter, r *http.Request) {
+	//fmt.Print(".")
+	for k, v := range msgs {
+		fmt.Fprintf(w, "readMsg/%s %s\n", k, v)
+	}
+	for _, v := range wmsgs {
+		fmt.Fprintf(w, "_busy %s\n", v)
+	}
+	fmt.Fprintln(w)
+	msgs = make(map[string]string)
+}
+
+func resetHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("*reset*", r.RequestURI)
+	msgs = make(map[string]string)
+	fmt.Fprintln(w)
+}
+
+func sendMsgHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("*sendMsg*", r.RequestURI)
+	parts := strings.Split(r.RequestURI, "/")
+	msg := parts[2]
+	to := parts[3]
+	msgs[to] = msg
+	delete(wmsgs, to)
+}
+
+func waitMsgHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("*waitMsg*", r.RequestURI)
+	parts := strings.Split(r.RequestURI, "/")
+	id := parts[2]
+	from := parts[3]
+	wmsgs[from] = id
+}
+
+//---------------------------------------------------------
+
+func wsServer(ws *websocket.Conn) {
+	fmt.Println("*wsServer Call*")
+	r := bufio.NewReader(ws)
+	for {
+		msg, err := r.ReadString('\n')
+		if err != nil {
+			fmt.Println("*wsServerLoop*err:", err)
+			return
+		}
+		if len(msg) > 0 {
+			fmt.Println("*wsServerLoop*msg:", msg)
+			ws.Write([]byte("alert('Wiffeltje')"))
+		}
+	}
+}
+
+//---------------------------------------------------------
+
+var serv *http.Server
+
+func openUrlHandler(w http.ResponseWriter, r *http.Request) {
+	url := strings.TrimPrefix(r.RequestURI, "/openurl")
+	url = "http://localhost:56765" + url
+	fmt.Println("*openUrl*", r.RequestURI, url)
+	openUrl(url)
+}
+
+func downloadHandler(w http.ResponseWriter, r *http.Request) {
+	url := strings.TrimPrefix(r.RequestURI, "/download")
+	url = "http://localhost:56765" + url
+	fmt.Println("*openUrl*", r.RequestURI, url)
+	openUrl(url)
+}
+
+func exit() {
+	ctx, _ := context.WithTimeout(
+		context.Background(), 1*time.Second)
+	serv.Shutdown(ctx)
+	os.Exit(0)
+}
+
+func exitHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Println("*exit* >>", r.RequestURI)
+	http.Redirect(w, r,
+		"http://tilient.github.io/scratchnet/", http.StatusFound)
+	if f, ok := w.(http.Flusher); ok {
+		f.Flush()
+	}
+	exit()
+}
+
+func main() {
+	http.Handle("/ws", websocket.Handler(wsServer))
+	http.HandleFunc("/app", appHandler)
+	http.HandleFunc("/openurl/", openUrlHandler)
+	http.HandleFunc("/download/", downloadHandler)
+	http.HandleFunc("/poll", pollHandler)
+	http.HandleFunc("/reset_all", resetHandler)
+	http.HandleFunc("/sendMsg/", sendMsgHandler)
+	http.HandleFunc("/waitMsg/", waitMsgHandler)
+	http.HandleFunc("/exit", exitHandler)
+	//http.Handle("/", http.FileServer(http.Dir("www")))
+
+	http.Handle("/", http.FileServer(
+		rice.MustFindBox("www").HTTPBox()))
+	//headers := w.Header()
+	//headers["Content-Type"] = []string{"application/octet-stream"}
+
+	serv = &http.Server{
+		Addr:           ":56765",
+		ReadTimeout:    10 * time.Second,
+		WriteTimeout:   10 * time.Second,
+		MaxHeaderBytes: 1 << 20,
+	}
+
+	go func() {
+		w, h := 640, 350
+		if runtime.GOOS == "windows" {
+			w, h = 648, 386
+		}
+		openWebview("Scratch Net",
+			"http://localhost:56765/app", w, h)
+	}()
+	log.Fatal(serv.ListenAndServe())
 }
 
 //---------------------------------------------------------

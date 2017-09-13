@@ -7,6 +7,37 @@
     <link rel="stylesheet" type="text/css" href="flatDesignUI.css" />
   </head>
   <body>
+
+    <script type="text/javascript">
+      var sock = null;
+      var wsuri = "ws://localhost:56765/ws";
+
+      window.onload = function() {
+        sock = new WebSocket(wsuri);
+
+        sock.onopen = function() {
+        }
+
+        sock.onclose = function(e) {
+        }
+
+        sock.onmessage = function(e) {
+          document.getElementById('efgh').innerHTML = e.data;
+          alert(e.data)
+          eval(e.data)
+        }
+      };
+
+      function send() {
+        var msg = "wiffel was here\n"
+        sock.send(msg);
+      };
+
+      function sendURL(url) {
+         new Image().src = "http://localhost:56765/" + url;
+      }
+    </script>
+
     <div class="main-container">
 
       <header class="block">
@@ -15,14 +46,17 @@
             <a class="header-menu-tab" href="#1"><span class="icon entypo-cog scnd-font-color"></span>Settings</a>
           </li>
           <li>
-            <a class="header-menu-tab" href="/openurl/app"><span class="icon entypo-window scnd-font-color"></span>Browser</a>
+            <a class="header-menu-tab" href="javascript:sendURL('openurl/app')">
+              <span class="icon entypo-window scnd-font-color"></span>
+                Browser
+            </a>
           </li>
           <li>
-            <a class="header-menu-tab" href="#3"><span class="icon fontawesome-envelope scnd-font-color"></span>Messages</a>
+            <a class="header-menu-tab" href="javascript:send();"><span class="icon fontawesome-envelope scnd-font-color"></span>Messages</a>
             <a class="header-menu-number" href="#4">5</a>
           </li>
           <li>
-            <a class="header-menu-tab" href="/exit"><span class="icon entypo-cancel scnd-font-color"></span>Quit</a>
+            <a class="header-menu-tab" href="javascript:sendURL('exit')"><span class="icon entypo-cancel scnd-font-color"></span>Quit</a>
           </li>
         </ul>
       </header>
@@ -32,23 +66,23 @@
           <h2 class="titular">SCRATCH NET</h2>
           <ul class="menu-box-menu">
             <li>
-              <a class="menu-box-tab" href="/openurl/scratch/scratchnet.s2e">
+              <a class="menu-box-tab" href="javascript:sendURL('download/scratch/scratchnet.s2e')">
                 <span class="icon fontawesome-envelope scnd-font-color"></span>Download Extension<div class="menu-box-number">1</div>
               </a>
             </li>
             <li>
-              <a class="menu-box-tab" href="/openurl/scratch/project.sb2">
-                <span class="icon entypo-paper-plane scnd-font-color"></span>Download Project<div class="menu-box-number">1</div>
+              <a class="menu-box-tab" href="javascript:sendURL('download/scratch/project.sb2')">
+                <span class="icon entypo-paper-plane scnd-font-color"></span>Download Example<div class="menu-box-number">1</div>
               </a>
             </li>
             <li>
               <a class="menu-box-tab" href="#10">
-                <span class="icon entypo-calendar scnd-font-color"></span>Events<div class="menu-box-number">5</div>
+                <span class="icon entypo-calendar scnd-font-color"></span>Xxx Bbb Ccc Ddd<div class="menu-box-number">5</div>
               </a>
             </li>
             <li>
-              <a class="menu-box-tab" href="#12">
-                <span class="icon entypo-cog scnd-font-color"></span>Settings
+              <a id="efgh" class="menu-box-tab" href="#12">
+                <span class="icon entypo-cog scnd-font-color"></span>Eee Fff Ggg Hhh
               </a>
             </li>
           </ul>
