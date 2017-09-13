@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"context"
-	"errors"
 	"fmt"
 	"html/template"
 	"log"
@@ -133,7 +132,11 @@ func openUrl(url string) error {
 
 //---------------------------------------------------------
 
-func openWebview(title, url string, w, h int) error {
+func openWebview(title, url string) {
+	w, h := 640, 350
+	if runtime.GOOS == "windows" {
+		w, h = 648, 386
+	}
 	titleStr := C.CString(title)
 	defer C.free(unsafe.Pointer(titleStr))
 	urlStr := C.CString(url)
@@ -142,11 +145,10 @@ func openWebview(title, url string, w, h int) error {
 	r := C.webview(titleStr, urlStr,
 		C.int(w), C.int(h), resize)
 	if r != 0 {
-		return errors.New("failed to create webview")
+		log.Fatal("failed to create webview")
 	}
 	fmt.Println("* webview opened *")
 	exit()
-	return nil
 }
 
 //---------------------------------------------------------
@@ -177,11 +179,41 @@ func appHandler(w http.ResponseWriter, r *http.Request) {
 
 //---------------------------------------------------------
 
+var serv *http.Server
+
 var msgs map[string]string = make(map[string]string)
 var wmsgs map[string]string = make(map[string]string)
 
+//---------------------------------------------------------
+
+func wsServer(ws *websocket.Conn) {
+	scanner := bufio.NewScanner(ws)
+	for scanner.Scan() {
+		msg := scanner.Text()
+		switch msg {
+		case "exit":
+			ws.Write([]byte("window.close()"))
+			exit()
+		case "openurl":
+			wsOpenUrl(scanner)
+		default:
+			fmt.Println("ERROR: unknown:", msg)
+			ws.Write([]byte(
+				"alert('ERROR: unknown: " + msg + "')"))
+		}
+	}
+}
+
+func wsOpenUrl(s *bufio.Scanner) {
+	if s.Scan() {
+		url := s.Text()
+		openUrl("http://localhost:56765" + url)
+	}
+}
+
+//---------------------------------------------------------
+
 func pollHandler(w http.ResponseWriter, r *http.Request) {
-	//fmt.Print(".")
 	for k, v := range msgs {
 		fmt.Fprintf(w, "readMsg/%s %s\n", k, v)
 	}
@@ -193,13 +225,13 @@ func pollHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func resetHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("*reset*", r.RequestURI)
 	msgs = make(map[string]string)
+	wmsgs = make(map[string]string)
 	fmt.Fprintln(w)
 }
 
-func sendMsgHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("*sendMsg*", r.RequestURI)
+func sendMsgHandler(w http.ResponseWriter,
+	r *http.Request) {
 	parts := strings.Split(r.RequestURI, "/")
 	msg := parts[2]
 	to := parts[3]
@@ -208,7 +240,6 @@ func sendMsgHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func waitMsgHandler(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("*waitMsg*", r.RequestURI)
 	parts := strings.Split(r.RequestURI, "/")
 	id := parts[2]
 	from := parts[3]
@@ -216,43 +247,6 @@ func waitMsgHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 //---------------------------------------------------------
-
-func wsServer(ws *websocket.Conn) {
-	r := bufio.NewReader(ws)
-	for {
-		msg, err := r.ReadString('\n')
-		if err != nil {
-			return
-		}
-		msg = strings.TrimSpace(msg)
-		if len(msg) > 0 {
-			switch msg {
-			case "exit":
-				ws.Write([]byte("window.close()"))
-				exit()
-			case "openurl":
-				wsOpenUrl(r)
-			default:
-				ws.Write([]byte(
-					"alert('ERROR: unknown: " + msg + "')"))
-				fmt.Println("ERROR: unknown:", msg)
-			}
-		}
-	}
-}
-
-func wsOpenUrl(r *bufio.Reader) {
-	url := ""
-	for len(url) < 1 {
-		url, _ = r.ReadString('\n')
-		url = strings.TrimSpace(url)
-	}
-	openUrl("http://localhost:56765" + url)
-}
-
-//---------------------------------------------------------
-
-var serv *http.Server
 
 func exit() {
 	ctx, _ := context.WithTimeout(
@@ -280,12 +274,8 @@ func main() {
 	}
 
 	go func() {
-		w, h := 640, 350
-		if runtime.GOOS == "windows" {
-			w, h = 648, 386
-		}
 		openWebview("Scratch Net",
-			"http://localhost:56765/app", w, h)
+			"http://localhost:56765/app")
 	}()
 	log.Fatal(serv.ListenAndServe())
 }
