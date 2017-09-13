@@ -9,28 +9,17 @@
 
     <script type="text/javascript">
       var sock = null;
-      var wsuri = "ws://localhost:56765/ws";
 
       window.onload = function() {
-        sock = new WebSocket(wsuri);
-
-        sock.onopen = function() {
-        }
-
-        sock.onclose = function(e) {
-        }
-
-        sock.onmessage = function(e) {
-          document.getElementById('efgh').innerHTML = e.data;
-          alert(e.data)
-          eval(e.data)
-        }
+        sock = new WebSocket("ws://localhost:56765/ws");
+        sock.onopen = function() { }
+        sock.onclose = function(e) { }
+        sock.onmessage = function(e) { eval(e.data) }
       };
 
       function wsSend() {
         for (var i = 0; i < arguments.length; i++) {
-          var msg = arguments[i] + "\n"
-          sock.send(msg);
+          sock.send( arguments[i] + "\n");
         }
       };
     </script>

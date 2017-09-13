@@ -218,24 +218,24 @@ func waitMsgHandler(w http.ResponseWriter, r *http.Request) {
 //---------------------------------------------------------
 
 func wsServer(ws *websocket.Conn) {
-	fmt.Println("*wsServer Call*")
 	r := bufio.NewReader(ws)
 	for {
 		msg, err := r.ReadString('\n')
 		if err != nil {
-			fmt.Printf("*wsServerLoop*err:>>%s<<\n", err)
 			return
 		}
+		msg = strings.TrimSpace(msg)
 		if len(msg) > 0 {
-			msg = strings.TrimSpace(msg)
-			fmt.Printf("*wsServerLoop*msg:>>%s<<\n", msg)
 			switch msg {
 			case "exit":
+				ws.Write([]byte("window.close()"))
 				exit()
 			case "openurl":
 				wsOpenUrl(r)
 			default:
-				ws.Write([]byte("alert('Wiffeltje')"))
+				ws.Write([]byte(
+					"alert('ERROR: unknown: " + msg + "')"))
+				fmt.Println("ERROR: unknown:", msg)
 			}
 		}
 	}
@@ -244,17 +244,10 @@ func wsServer(ws *websocket.Conn) {
 func wsOpenUrl(r *bufio.Reader) {
 	url := ""
 	for len(url) < 1 {
-		var err error
-		url, err = r.ReadString('\n')
-		if err != nil {
-			fmt.Printf("*openUrl*err:>>%s<<\n", err)
-		}
+		url, _ = r.ReadString('\n')
 		url = strings.TrimSpace(url)
 	}
-	fmt.Printf("*openUrl*msg:>>%s<<\n", url)
-	url = "http://localhost:56765" + url
-	fmt.Println("*openUrl*", url)
-	openUrl(url)
+	openUrl("http://localhost:56765" + url)
 }
 
 //---------------------------------------------------------
@@ -269,8 +262,8 @@ func exit() {
 }
 
 func main() {
-	http.Handle("/ws", websocket.Handler(wsServer))
 	http.HandleFunc("/app", appHandler)
+	http.Handle("/ws", websocket.Handler(wsServer))
 	http.Handle("/", http.FileServer(
 		rice.MustFindBox("www").HTTPBox()))
 
@@ -281,8 +274,8 @@ func main() {
 
 	serv = &http.Server{
 		Addr:           ":56765",
-		ReadTimeout:    10 * time.Second,
-		WriteTimeout:   10 * time.Second,
+		ReadTimeout:    15 * time.Second,
+		WriteTimeout:   15 * time.Second,
 		MaxHeaderBytes: 1 << 20,
 	}
 
