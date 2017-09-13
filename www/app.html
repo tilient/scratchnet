@@ -2,11 +2,9 @@
   <head>
     <title>Scratch Net</title>
     <meta http-equiv="x-ua-compatible" content="ie=10">
-    <hta:application id="ScratchNet" applicationname="ScratchNet" version="1" />
+    <hta:application id="ScratchNet" applicationname="ScratchNet"
+      version="1" />
     <link rel="stylesheet" type="text/css" href="flatDesignUI.css" />
-  </head>
-  <body>
-
     <script type="text/javascript">
       var sock = null;
 
@@ -23,26 +21,35 @@
         }
       };
     </script>
-
+  </head>
+  <body>
     <div class="main-container">
 
       <header class="block">
         <ul class="header-menu horizontal-list">
           <li>
-            <a class="header-menu-tab" href="#1"><span class="icon entypo-cog scnd-font-color"></span>Settings</a>
+            <a class="header-menu-tab" href="#1">
+              Settings
+            </a>
           </li>
           <li>
-            <a class="header-menu-tab" href="javascript:wsSend('openurl','/app')">
-              <span class="icon entypo-window scnd-font-color"></span>
+            <a class="header-menu-tab"
+              href="javascript:wsSend('openurl','/app')">
                 Browser
             </a>
           </li>
           <li>
-            <a class="header-menu-tab" href="javascript:wsSend('wiffel was here ...');"><span class="icon fontawesome-envelope scnd-font-color"></span>Messages</a>
+            <a class="header-menu-tab"
+              href="javascript:wsSend('wiffel was here ...');">
+                Messages
+            </a>
             <a class="header-menu-number" href="#4">5</a>
           </li>
           <li>
-            <a class="header-menu-tab" href="javascript:wsSend('exit')"><span class="icon entypo-cancel scnd-font-color"></span>Quit</a>
+            <a class="header-menu-tab"
+              href="javascript:wsSend('exit')">
+              Quit
+            </a>
           </li>
         </ul>
       </header>
@@ -52,23 +59,25 @@
           <h2 class="titular">SCRATCH NET</h2>
           <ul class="menu-box-menu">
             <li>
-              <a class="menu-box-tab" href="javascript:wsSend('openurl','/scratch/scratchnet.s2e')">
-                <span class="icon fontawesome-envelope scnd-font-color"></span>Download Extension<div class="menu-box-number">1</div>
+              <a class="menu-box-tab"
+                href="javascript:wsSend('openurl','/scratch/scratchnet.s2e')">
+                Download Extension
               </a>
             </li>
             <li>
-              <a class="menu-box-tab" href="javascript:wsSend('openurl','/scratch/project.sb2')">
-                <span class="icon entypo-paper-plane scnd-font-color"></span>Download Example<div class="menu-box-number">1</div>
+              <a class="menu-box-tab"
+                href="javascript:wsSend('openurl','/scratch/project.sb2')">
+                Download Example
               </a>
             </li>
             <li>
               <a class="menu-box-tab" href="#10">
-                <span class="icon entypo-calendar scnd-font-color"></span>Xxx Bbb Ccc Ddd<div class="menu-box-number">5</div>
+                Xxx Bbb Ccc Ddd
               </a>
             </li>
             <li>
               <a id="efgh" class="menu-box-tab" href="#12">
-                <span class="icon entypo-cog scnd-font-color"></span>Eee Fff Ggg Hhh
+                Eee Fff Ggg Hhh
               </a>
             </li>
           </ul>
@@ -76,12 +85,14 @@
       </div>
 
       <div class="right-container container">
-        <div class="profile block"> <!-- PROFILE (MIDDLE-CONTAINER) -->
-          <a class="add-button" href="#28"><span class="icon entypo-plus scnd-font-color"></span></a>
+        <div class="block profile">
+          <br />
           <div class="profile-picture big-profile-picture clear">
-            <img width="160px" alt="Scratch Cat picture" src="/imgs/scratchCat.jpg" >
+            <img width="160px" alt="Scratch Cat picture"
+               src="/imgs/scratchCat.jpg" >
           </div>
-          <h1 class="user-name">Scratch Net</h1>
+          <br />
+          <h1>Scratch Net</h1>
         </div>
       </div>
 
