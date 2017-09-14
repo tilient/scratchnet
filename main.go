@@ -149,7 +149,6 @@ func openWebview() {
 	if r != 0 {
 		log.Fatal("failed to create webview")
 	}
-	//exit()
 }
 
 //---------------------------------------------------------
@@ -182,18 +181,20 @@ func appHandler(w http.ResponseWriter, r *http.Request) {
 
 var serv *http.Server
 
+var connections map[*websocket.Conn]bool = make(map[*websocket.Conn]bool)
+
 var msgs map[string]string = make(map[string]string)
 var wmsgs map[string]string = make(map[string]string)
 
 //---------------------------------------------------------
 
 func wsServer(ws *websocket.Conn) {
+	connections[ws] = true
 	scanner := bufio.NewScanner(ws)
 	for scanner.Scan() {
 		msg := scanner.Text()
 		switch msg {
 		case "exit":
-			ws.Write([]byte("window.close()"))
 			exit()
 		case "openurl":
 			wsOpenUrl(scanner)
@@ -205,6 +206,7 @@ func wsServer(ws *websocket.Conn) {
 				"alert('ERROR: unknown: " + msg + "')"))
 		}
 	}
+	delete(connections, ws)
 }
 
 func wsOpenUrl(s *bufio.Scanner) {
@@ -212,6 +214,10 @@ func wsOpenUrl(s *bufio.Scanner) {
 		url := s.Text()
 		openUrl("http://localhost:56765" + url)
 	}
+}
+
+func openAppHandler(w http.ResponseWriter, r *http.Request) {
+	go openWebview()
 }
 
 //---------------------------------------------------------
@@ -252,6 +258,9 @@ func waitMsgHandler(w http.ResponseWriter, r *http.Request) {
 //---------------------------------------------------------
 
 func exit() {
+	for ws, _ := range connections {
+		ws.Write([]byte("window.close()"))
+	}
 	ctx, _ := context.WithTimeout(
 		context.Background(), 1*time.Second)
 	serv.Shutdown(ctx)
@@ -259,7 +268,14 @@ func exit() {
 }
 
 func main() {
+	_, err := http.Get("http://localhost:56765/openapp")
+	if err == nil {
+		fmt.Println("**")
+		os.Exit(0)
+	}
+
 	http.HandleFunc("/app", appHandler)
+	http.HandleFunc("/openapp", openAppHandler)
 	http.Handle("/ws", websocket.Handler(wsServer))
 	http.Handle("/", http.FileServer(
 		rice.MustFindBox("www").HTTPBox()))
