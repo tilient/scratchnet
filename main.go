@@ -39,18 +39,29 @@ import "C"
 
 const port = 56865
 
+var udpSocket *net.UDPConn
+
 func sender() {
 	bip, ip := outboundBroadcastIP()
 	addr := &net.UDPAddr{
 		IP:   bip,
 		Port: port,
 	}
-	socket, _ := net.DialUDP("udp4", nil, addr)
-	data := []byte("message from " + ip.String())
+	udpSocket, _ = net.DialUDP("udp4", nil, addr)
+	data := []byte("ping\n" + ip.String() + "\n")
 	for {
-		socket.Write(data)
+		udpSocket.Write(data)
 		time.Sleep(15 * time.Second)
 	}
+}
+
+func udpSend(strs ...string) {
+	dat := ""
+	for _, str := range strs {
+		dat += str + "\n"
+	}
+	data := []byte(dat)
+	udpSocket.Write(data)
 }
 
 func listener() {
@@ -64,9 +75,15 @@ func listener() {
 	for {
 		data := make([]byte, 256)
 		n, _, _ := socket.ReadFromUDP(data)
-		str := string(data[:n])
-		fmt.Println(" str(data):", str)
-		sendAll("debugLog('" + str + "');")
+		str := strings.TrimSpace(string(data[:n]))
+		strs := strings.Split(str, "\n")
+		fmt.Println(">>", strs)
+		switch strs[0] {
+		case "send":
+			udpSendMsgHandler(strs)
+		default:
+			fmt.Println("NYI", strs)
+		}
 	}
 }
 
@@ -243,13 +260,19 @@ func resetHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w)
 }
 
+func udpSendMsgHandler(parts []string) {
+	msg := parts[1]
+	to := parts[2]
+	msgs[to] = msg
+	delete(wmsgs, to)
+}
+
 func sendMsgHandler(w http.ResponseWriter,
 	r *http.Request) {
 	parts := strings.Split(r.RequestURI, "/")
 	msg := parts[2]
 	to := parts[3]
-	msgs[to] = msg
-	delete(wmsgs, to)
+	udpSend("send", msg, to)
 }
 
 func waitMsgHandler(w http.ResponseWriter, r *http.Request) {
