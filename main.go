@@ -132,7 +132,9 @@ func openUrl(url string) error {
 
 //---------------------------------------------------------
 
-func openWebview(title, url string) {
+func openWebview() {
+	title := "Scratch Net"
+	url := "http://localhost:56765/app"
 	w, h := 640, 350
 	if runtime.GOOS == "windows" {
 		w, h = 648, 386
@@ -147,8 +149,7 @@ func openWebview(title, url string) {
 	if r != 0 {
 		log.Fatal("failed to create webview")
 	}
-	fmt.Println("* webview opened *")
-	exit()
+	//exit()
 }
 
 //---------------------------------------------------------
@@ -196,6 +197,8 @@ func wsServer(ws *websocket.Conn) {
 			exit()
 		case "openurl":
 			wsOpenUrl(scanner)
+		case "openapp":
+			go openWebview()
 		default:
 			fmt.Println("ERROR: unknown:", msg)
 			ws.Write([]byte(
@@ -273,10 +276,8 @@ func main() {
 		MaxHeaderBytes: 1 << 20,
 	}
 
-	go func() {
-		openWebview("Scratch Net",
-			"http://localhost:56765/app")
-	}()
+	go openWebview()
+
 	log.Fatal(serv.ListenAndServe())
 }
 
