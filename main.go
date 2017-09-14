@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/binary"
 	"fmt"
 	"html/template"
 	"log"
@@ -11,7 +12,6 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
-	"strconv"
 	"strings"
 	"time"
 	"unsafe"
@@ -39,29 +39,41 @@ import "C"
 
 const port = 56865
 
-var udpSocket *net.UDPConn
+var udpSockets []*net.UDPConn
 
-func sender() {
-	bip, ip := outboundBroadcastIP()
-	addr := &net.UDPAddr{
-		IP:   bip,
-		Port: port,
-	}
-	udpSocket, _ = net.DialUDP("udp4", nil, addr)
-	data := []byte("ping\n" + ip.String() + "\n")
-	for {
-		udpSocket.Write(data)
-		time.Sleep(15 * time.Second)
+func senders() {
+	interfaces, _ := net.Interfaces()
+	for _, intf := range interfaces {
+		if (intf.Flags & net.FlagBroadcast) > 0 {
+			addrs, _ := intf.Addrs()
+			for _, addr := range addrs {
+				ip, ipnet, _ := net.ParseCIDR(addr.String())
+				bip := broadcastIP(ipnet)
+				if len(bip) > 0 {
+					addr := &net.UDPAddr{
+						IP:   bip,
+						Port: port,
+					}
+					udpSocket, _ := net.DialUDP("udp4", nil, addr)
+					udpSockets = append(udpSockets, udpSocket)
+					data := []byte("ping\n" + ip.String() + "\n")
+					go func() {
+						for {
+							udpSocket.Write(data)
+							time.Sleep(15 * time.Second)
+						}
+					}()
+				}
+			}
+		}
 	}
 }
 
 func udpSend(strs ...string) {
-	dat := ""
-	for _, str := range strs {
-		dat += str + "\n"
+	data := []byte(strings.Join(strs, "\n"))
+	for _, udpSocket := range udpSockets {
+		udpSocket.Write(data)
 	}
-	data := []byte(dat)
-	udpSocket.Write(data)
 }
 
 func listener() {
@@ -87,47 +99,15 @@ func listener() {
 	}
 }
 
-func outboundBroadcastIP() (net.IP, net.IP) {
-	outboundIP := GetOutboundIP()
-	interfaces, _ := net.Interfaces()
-	for _, intf := range interfaces {
-		addrs, _ := intf.Addrs()
-		for _, addr := range addrs {
-			ipv4Addr, _, _ := net.ParseCIDR(addr.String())
-			if ipv4Addr.String() == outboundIP.String() {
-				return broadcastIP(addr.String()), outboundIP
-			}
-		}
+func broadcastIP(n *net.IPNet) net.IP {
+	if n.IP.To4() == nil {
+		return net.IP{}
 	}
-	return nil, outboundIP
-}
-
-func GetOutboundIP() net.IP {
-	conn, err := net.Dial("udp", "8.8.8.8:80")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer conn.Close()
-
-	localAddr := conn.LocalAddr().(*net.UDPAddr)
-	return localAddr.IP
-}
-
-func broadcastIP(s string) net.IP {
-	i := strings.Index(s, "/")
-	addr, mask := s[:i], s[i+1:]
-	ip := net.ParseIP(addr)
-	n, _ := strconv.Atoi(mask)
-	m := net.CIDRMask(n, 8*net.IPv4len)
-	bip := make(net.IP, len(ip))
-	offset := len(ip) - len(m)
-	for ix, v := range ip {
-		bip[ix] = v
-		if ix >= offset {
-			bip[ix] |= ^m[ix-offset]
-		}
-	}
-	return bip
+	ip := make(net.IP, len(n.IP.To4()))
+	a := binary.BigEndian.Uint32(n.IP.To4())
+	b := binary.BigEndian.Uint32(net.IP(n.Mask).To4())
+	binary.BigEndian.PutUint32(ip, a|^b)
+	return ip
 }
 
 //---------------------------------------------------------
@@ -291,9 +271,7 @@ func sendAll(str string) {
 }
 
 func exit() {
-	for ws, _ := range connections {
-		ws.Write([]byte("window.close()"))
-	}
+	sendAll("window.close()")
 	ctx, _ := context.WithTimeout(
 		context.Background(), 1*time.Second)
 	serv.Shutdown(ctx)
@@ -301,8 +279,9 @@ func exit() {
 }
 
 func main() {
-	_, err := http.Get("http://localhost:56765/openapp")
+	resp, err := http.Get("http://localhost:56765/openapp")
 	if err == nil {
+		resp.Body.Close()
 		os.Exit(0)
 	}
 
@@ -324,9 +303,9 @@ func main() {
 		MaxHeaderBytes: 1 << 20,
 	}
 
-	go openWebview()
-	go sender()
+	senders()
 	go listener()
+	go openWebview()
 
 	log.Fatal(serv.ListenAndServe())
 }
