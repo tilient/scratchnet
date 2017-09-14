@@ -46,7 +46,7 @@ func sender() {
 		Port: port,
 	}
 	socket, _ := net.DialUDP("udp4", nil, addr)
-	data := []byte(ip.String())
+	data := []byte("message from " + ip.String())
 	for {
 		socket.Write(data)
 		time.Sleep(15 * time.Second)
@@ -62,9 +62,11 @@ func listener() {
 		log.Fatal(err)
 	}
 	for {
-		data := make([]byte, 16)
+		data := make([]byte, 256)
 		n, _, _ := socket.ReadFromUDP(data)
-		fmt.Println(" str(data):", string(data[:n]))
+		str := string(data[:n])
+		fmt.Println(" str(data):", str)
+		sendAll("debugLog('" + str + "');")
 	}
 }
 
@@ -259,6 +261,12 @@ func waitMsgHandler(w http.ResponseWriter, r *http.Request) {
 
 //---------------------------------------------------------
 
+func sendAll(str string) {
+	for ws, _ := range connections {
+		ws.Write([]byte(str))
+	}
+}
+
 func exit() {
 	for ws, _ := range connections {
 		ws.Write([]byte("window.close()"))
@@ -294,6 +302,8 @@ func main() {
 	}
 
 	go openWebview()
+	go sender()
+	go listener()
 
 	log.Fatal(serv.ListenAndServe())
 }
