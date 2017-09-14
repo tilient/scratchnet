@@ -13,6 +13,11 @@
         sock.onmessage = function(e) { eval(e.data) }
       };
 
+      window.onunload = function () {
+        sock.close()
+        return true;
+      }
+
       function wsSend() {
         for (var i = 0; i < arguments.length; i++) {
           sock.send( arguments[i] + "\n");

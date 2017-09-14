@@ -217,7 +217,9 @@ func wsOpenUrl(s *bufio.Scanner) {
 }
 
 func openAppHandler(w http.ResponseWriter, r *http.Request) {
-	go openWebview()
+	if len(connections) < 1 {
+		go openWebview()
+	}
 }
 
 //---------------------------------------------------------
@@ -270,7 +272,6 @@ func exit() {
 func main() {
 	_, err := http.Get("http://localhost:56765/openapp")
 	if err == nil {
-		fmt.Println("**")
 		os.Exit(0)
 	}
 
