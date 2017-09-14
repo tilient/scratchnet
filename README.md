@@ -6,10 +6,11 @@ A extension for Scratch that enables multiple machines to talk with each other f
 downloads
 ---------
 
-linux binary (64-bit): [scratchnet](https://github.com/tilient/scratchnet/releases/download/v0.1-alpha/scratchnet)
+linux binary (64-bit): [scratchnet](https://github.com/tilient/scratchnet/releases/download/v0.3-alpha/scratchnet)
 
-windows binary (64-bit): [scratchnet.exe](https://github.com/tilient/scratchnet/releases/download/v0.1-alpha/scratchnet.exe)
+windows binary (64-bit): [scratchnet.exe](https://github.com/tilient/scratchnet/releases/download/v0.3-alpha/scratchnet.exe)
 
+example scratch project: [project.sb2](https://github.com/tilient/scratchnet/releases/download/v0.3-alpha/project.sb2)
 
 dependencies
 ------------
