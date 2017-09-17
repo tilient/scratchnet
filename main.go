@@ -74,10 +74,11 @@ func cleanUp() {
 func broadcastOn(addr *net.UDPAddr) {
 	c, err := net.DialUDP("udp", nil, addr)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("--1--", err)
 	}
 	msg := []byte("scratchnet")
 	for {
+		fmt.Println("Peers:", peers)
 		c.Write(msg)
 		time.Sleep(15 * time.Second)
 	}
@@ -86,11 +87,11 @@ func broadcastOn(addr *net.UDPAddr) {
 func listenOn(addr *net.UDPAddr, isIPv4 bool) {
 	c, err := net.ListenMulticastUDP("udp", nil, addr)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("--1--", err)
 	}
 	f, err := c.File()
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("--2--", err)
 	}
 	if isIPv4 {
 		err = syscall.SetsockoptInt(int(f.Fd()),
@@ -100,13 +101,13 @@ func listenOn(addr *net.UDPAddr, isIPv4 bool) {
 			syscall.IPPROTO_IPV6, syscall.IPV6_MULTICAST_LOOP, 1)
 	}
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("--3--", err)
 	}
 	buf := make([]byte, 2048)
 	for {
 		_, addr, err := c.ReadFromUDP(buf)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal("--4--", err)
 		}
 		peers[string(addr.IP)] = 60
 	}
@@ -148,7 +149,7 @@ func openWebview() {
 	r := C.webview(titleStr, urlStr,
 		C.int(w), C.int(h), resize)
 	if r != 0 {
-		log.Fatal("failed to create webview")
+		log.Fatal("--5--", "failed to create webview")
 	}
 }
 
@@ -160,15 +161,15 @@ func appHandler(w http.ResponseWriter, r *http.Request) {
 	if appTmpl == nil {
 		box, err := rice.FindBox("www")
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal("--6--", err)
 		}
 		appStr, err := box.String("app.html")
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal("--7--", err)
 		}
 		appTmpl, err = template.New("app").Parse(appStr)
 		if err != nil {
-			log.Fatal(err)
+			log.Fatal("--8--", err)
 		}
 	}
 	err := appTmpl.Execute(w, nil)
@@ -319,7 +320,7 @@ func main() {
 	listen()
 	broadcast()
 	go cleanUp()
-	log.Fatal(serv.ListenAndServe())
+	log.Fatal("--10--", serv.ListenAndServe())
 }
 
 //---------------------------------------------------------
