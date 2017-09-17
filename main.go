@@ -41,7 +41,9 @@ func main() {
 	const port = 56865
 	go func() {
 		socket, err := net.DialUDP("udp4", nil, &net.UDPAddr{
-			IP:   net.IPv4(255, 255, 255, 255),
+			//IP:   net.IPv4(255, 255, 255, 255),
+			IP: net.IPv4(224, 0, 0, 1),
+			//IP:   net.IPv4(0, 0, 0, 0),
 			Port: port,
 		})
 		if err != nil {
@@ -53,8 +55,10 @@ func main() {
 		}
 	}()
 
-	socket, err := net.ListenUDP("udp4", &net.UDPAddr{
-		IP:   net.IPv4(0, 0, 0, 0),
+	//socket, err := net.ListenUDP("udp4", &net.UDPAddr{
+	socket, err := net.ListenMulticastUDP("udp4", nil, &net.UDPAddr{
+		//IP:   net.IPv4(0, 0, 0, 0),
+		IP:   net.IPv4(224, 0, 0, 1),
 		Port: port,
 	})
 	if err != nil {
