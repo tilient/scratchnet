@@ -37,28 +37,51 @@ import "C"
 
 //---------------------------------------------------------
 
+func main() {
+	const port = 56865
+	go func() {
+		socket, err := net.DialUDP("udp4", nil, &net.UDPAddr{
+			IP:   net.IPv4(255, 255, 255, 255),
+			Port: port,
+		})
+		if err != nil {
+			log.Fatal("ERR 01 - ", err)
+		}
+		for {
+			socket.Write([]byte("wiffel"))
+			time.Sleep(5 * time.Second)
+		}
+	}()
+
+	socket, err := net.ListenUDP("udp4", &net.UDPAddr{
+		IP:   net.IPv4(0, 0, 0, 0),
+		Port: port,
+	})
+	if err != nil {
+		log.Fatal("ERR 01 - ", err)
+	}
+	for {
+		data := make([]byte, 4096)
+		read, remoteAddr, _ := socket.ReadFromUDP(data)
+		fmt.Println(remoteAddr.String(), " -> ",
+			string(data[:read]))
+	}
+}
+
+//---------------------------------------------------------
+
 var (
 	peers      map[string]int = make(map[string]int)
 	peersMutex sync.Mutex
 )
 
-func main() {
-	addr, err := net.ResolveUDPAddr(
-		"udp4", "224.0.0.1:56865")
-	if err != nil {
-		fmt.Println("ERR 01: ", err)
-	}
-	conn, err := net.ListenMulticastUDP("udp4", nil, addr)
-	if err != nil {
-		fmt.Println("ERR 02: ", err)
-	}
+func mainYY() {
+	addr, _ := net.ResolveUDPAddr("udp4", "224.0.0.1:56865")
+	conn, _ := net.ListenMulticastUDP("udp4", nil, addr)
 	go func() {
 		b := make([]byte, 2048)
 		for {
-			n, raddr, err := conn.ReadFromUDP(b)
-			if err != nil {
-				fmt.Println("ERR 03: ", err)
-			}
+			n, raddr, _ := conn.ReadFromUDP(b)
 			host, _, _ := net.SplitHostPort(raddr.String())
 			fmt.Println("host: ", host, " >> ", string(b[:n]))
 			peersMutex.Lock()
@@ -67,10 +90,8 @@ func main() {
 		}
 	}()
 
-	c, err := net.DialUDP("udp4", nil, addr)
-	if err != nil {
-		fmt.Println("ERR 04: ", err)
-	}
+	ad, _ := net.ResolveUDPAddr("udp4", "224.0.0.1:56865")
+	c, _ := net.DialUDP("udp4", nil, ad)
 	msg := []byte("scratchnet")
 	go func() {
 		for {
@@ -78,10 +99,10 @@ func main() {
 			time.Sleep(5 * time.Second)
 		}
 	}()
-	peers["127.0.0.1"] = 60
 	for {
 		fmt.Println("peers:")
 		peersMutex.Lock()
+		peers["127.0.0.1"] = 60
 		for k, v := range peers {
 			fmt.Println(" ", k, " - ", v)
 			if v <= 0 {
@@ -90,7 +111,6 @@ func main() {
 				peers[k] = v - 15
 			}
 		}
-		peers["127.0.0.1"] = 60
 		peersMutex.Unlock()
 		time.Sleep(15 * time.Second)
 	}
