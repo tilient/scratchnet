@@ -96,8 +96,12 @@ func broadcastOn(addr *net.UDPAddr, isIPv4 bool) {
 
 func listenOn(addr *net.UDPAddr, isIPv4 bool) {
 	ipKind := "udp6"
+	proto := syscall.IPPROTO_IP
+	multic := syscall.IP_MULTICAST_LOOP
 	if isIPv4 {
 		ipKind = "udp4"
+		proto = syscall.IPPROTO_IPV6
+		multic = syscall.IPV6_MULTICAST_LOOP
 	}
 	c, err := net.ListenMulticastUDP(ipKind, nil, addr)
 	if err != nil {
@@ -107,13 +111,7 @@ func listenOn(addr *net.UDPAddr, isIPv4 bool) {
 	if err != nil {
 		log.Fatal("--2--", err)
 	}
-	if isIPv4 {
-		err = syscall.SetsockoptInt(int(f.Fd()),
-			syscall.IPPROTO_IP, syscall.IP_MULTICAST_LOOP, 1)
-	} else {
-		err = syscall.SetsockoptInt(int(f.Fd()),
-			syscall.IPPROTO_IPV6, syscall.IPV6_MULTICAST_LOOP, 1)
-	}
+	err = syscall.SetsockoptInt(int(f.Fd()), proto, multic, 1)
 	if err != nil {
 		log.Fatal("--3--", err)
 	}
