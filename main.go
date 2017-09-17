@@ -38,17 +38,10 @@ import "C"
 
 //---------------------------------------------------------
 
-func main() {
-	senders()
-	listener()
-}
-
 var (
 	peers      map[string]int = make(map[string]int)
 	peersMutex sync.Mutex
 )
-
-//---------------------------------------------------------
 
 const port = 56865
 
@@ -58,7 +51,7 @@ func senders() {
 		if (intf.Flags & net.FlagBroadcast) > 0 {
 			addrs, _ := intf.Addrs()
 			for _, addr := range addrs {
-				ip, ipnet, _ := net.ParseCIDR(addr.String())
+				_, ipnet, _ := net.ParseCIDR(addr.String())
 				bip := broadcastIP(ipnet)
 				if len(bip) > 0 {
 					addr := &net.UDPAddr{
@@ -66,7 +59,7 @@ func senders() {
 						Port: port,
 					}
 					udpSocket, _ := net.DialUDP("udp4", nil, addr)
-					data := []byte(ip.String())
+					data := []byte("scratchnet")
 					go func() {
 						for {
 							udpSocket.Write(data)
@@ -87,12 +80,32 @@ func listener() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	for {
+	go func() {
 		data := make([]byte, 256)
-		n, addr, _ := socket.ReadFromUDP(data)
-		str := strings.TrimSpace(string(data[:n]))
-		fmt.Println(">>", str)
-		fmt.Println("--", addr.IP.String())
+		for {
+			_, addr, _ := socket.ReadFromUDP(data)
+			peersMutex.Lock()
+			peers[addr.IP.String()] = 60
+			peersMutex.Unlock()
+		}
+	}()
+}
+
+func cleanPeers() {
+	for {
+		fmt.Println("--Peers--")
+		peersMutex.Lock()
+		for k, v := range peers {
+			fmt.Println(k, "->", v)
+			if v <= 0 {
+				delete(peers, k)
+			} else {
+				peers[k] = v - 10
+			}
+		}
+		peersMutex.Unlock()
+		fmt.Println("---------")
+		time.Sleep(10 * time.Second)
 	}
 }
 
@@ -240,8 +253,8 @@ func resetHandler(w http.ResponseWriter, r *http.Request) {
 func sendMsgBasicHandler(w http.ResponseWriter,
 	r *http.Request) {
 	parts := strings.Split(r.RequestURI, "/")
-	msg := parts[1]
-	to := parts[2]
+	msg := parts[2]
+	to := parts[3]
 	msgs[to] = msg
 	delete(wmsgs, to)
 }
@@ -253,8 +266,9 @@ func sendMsgHandler(w http.ResponseWriter,
 	to := parts[3]
 	peersMutex.Lock()
 	for ip, _ := range peers {
-		resp, err := http.Get(
-			"http://" + ip + ":56765/sendMsgBasic/" + msg + "/" + to)
+		url := "http://" + ip + ":56765/sendMsgBasic/" +
+			msg + "/" + to
+		resp, err := http.Get(url)
 		if err == nil {
 			resp.Body.Close()
 		}
@@ -285,12 +299,16 @@ func exit() {
 	os.Exit(0)
 }
 
-func mainXX() {
+func main() {
 	resp, err := http.Get("http://localhost:56765/openapp")
 	if err == nil {
 		resp.Body.Close()
 		os.Exit(0)
 	}
+
+	senders()
+	listener()
+	go cleanPeers()
 
 	http.HandleFunc("/app", appHandler)
 	http.HandleFunc("/openapp", openAppHandler)
