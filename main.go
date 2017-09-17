@@ -39,12 +39,12 @@ import "C"
 
 var (
 	ipv4mcastaddr = &net.UDPAddr{
-		IP:   net.ParseIP("224.0.0.251"),
+		IP:   net.ParseIP("224.0.0.1"),
 		Port: 56865,
 	}
 	ipv6mcastaddr = &net.UDPAddr{
 		//IP:   net.ParseIP("ff02::fb"),
-		IP:   net.ParseIP("ff02::fb"),
+		IP:   net.ParseIP("ff02::1"),
 		Port: 56865,
 	}
 	peers map[string]int = make(map[string]int)
@@ -113,7 +113,7 @@ func listenOn(addr *net.UDPAddr, isIPv4 bool) {
 	}
 	err = syscall.SetsockoptInt(int(f.Fd()), proto, multic, 1)
 	if err != nil {
-		log.Fatal("--3--", err)
+		log.Println(ipKind, "--3--", err)
 	}
 	buf := make([]byte, 2048)
 	for {
