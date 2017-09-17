@@ -37,49 +37,12 @@ import "C"
 
 //---------------------------------------------------------
 
-func main() {
-	const port = 56865
-	go func() {
-		socket, err := net.DialUDP("udp4", nil, &net.UDPAddr{
-			//IP:   net.IPv4(255, 255, 255, 255),
-			IP: net.IPv4(224, 0, 0, 1),
-			//IP:   net.IPv4(0, 0, 0, 0),
-			Port: port,
-		})
-		if err != nil {
-			log.Fatal("ERR 01 - ", err)
-		}
-		for {
-			socket.Write([]byte("wiffel"))
-			time.Sleep(5 * time.Second)
-		}
-	}()
-
-	//socket, err := net.ListenUDP("udp4", &net.UDPAddr{
-	socket, err := net.ListenMulticastUDP("udp4", nil, &net.UDPAddr{
-		//IP:   net.IPv4(0, 0, 0, 0),
-		IP:   net.IPv4(224, 0, 0, 1),
-		Port: port,
-	})
-	if err != nil {
-		log.Fatal("ERR 01 - ", err)
-	}
-	for {
-		data := make([]byte, 4096)
-		read, remoteAddr, _ := socket.ReadFromUDP(data)
-		fmt.Println(remoteAddr.String(), " -> ",
-			string(data[:read]))
-	}
-}
-
-//---------------------------------------------------------
-
 var (
 	peers      map[string]int = make(map[string]int)
 	peersMutex sync.Mutex
 )
 
-func mainYY() {
+func main() {
 	addr, _ := net.ResolveUDPAddr("udp4", "224.0.0.1:56865")
 	conn, _ := net.ListenMulticastUDP("udp4", nil, addr)
 	go func() {
