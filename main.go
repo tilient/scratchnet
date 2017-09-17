@@ -39,6 +39,51 @@ import "C"
 
 //---------------------------------------------------------
 
+func main() {
+	addr, err := net.ResolveUDPAddr(
+		"udp4", "224.0.0.1:56865")
+	if err != nil {
+		fmt.Println("ERR 01: ", err)
+	}
+	fmt.Println("addr: ", addr)
+	conn, err := net.ListenMulticastUDP("udp4", nil, addr)
+	if err != nil {
+		fmt.Println("ERR 02: ", err)
+	}
+	defer conn.Close()
+	fmt.Println("conn: ", conn)
+	go func() {
+		b := make([]byte, 2048)
+		for t := 0; t < 10; t++ {
+			n, raddr, err := conn.ReadFromUDP(b)
+			if err != nil {
+				fmt.Println("ERR 03: ", err)
+			}
+			fmt.Println("n: ", n)
+			fmt.Println("raddr: ", raddr)
+			host, _, _ := net.SplitHostPort(raddr.String())
+			fmt.Println("host: ", host)
+			fmt.Println("b: ", string(b[:n]))
+			time.Sleep(5 * time.Second)
+		}
+	}()
+
+	c, err := net.DialUDP("udp4", nil, addr)
+	//c, err := net.Dial("udp4", "224.0.0.251:56865")
+	if err != nil {
+		fmt.Println("ERR 04: ", err)
+	}
+	defer c.Close()
+	fmt.Println("c: ", c)
+	msg := []byte("scratchnet")
+	for t := 0; t < 10; t++ {
+		c.Write(msg)
+		time.Sleep(10 * time.Second)
+	}
+}
+
+//---------------------------------------------------------
+
 var (
 	ipv4mcastaddr = &net.UDPAddr{
 		IP:   net.IPv4allsys,
@@ -377,7 +422,7 @@ func exit() {
 	os.Exit(0)
 }
 
-func main() {
+func mainXX() {
 	resp, err := http.Get("http://localhost:56765/openapp")
 	if err == nil {
 		resp.Body.Close()
