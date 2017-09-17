@@ -39,12 +39,11 @@ import "C"
 
 var (
 	ipv4mcastaddr = &net.UDPAddr{
-		IP:   net.ParseIP("224.0.0.251"),
+		IP:   net.IPv4allsys,
 		Port: 56865,
 	}
 	ipv6mcastaddr = &net.UDPAddr{
-		//IP:   net.ParseIP("ff02::fb"),
-		IP:   net.ParseIP("ff02::fb"),
+		IP:   net.IPv6linklocalallnodes,
 		Port: 56865,
 	}
 	peers map[string]int = make(map[string]int)
@@ -96,12 +95,12 @@ func broadcastOn(addr *net.UDPAddr, isIPv4 bool) {
 
 func listenOn(addr *net.UDPAddr, isIPv4 bool) {
 	ipKind := "udp6"
-	proto := syscall.IPPROTO_IP
-	multic := syscall.IP_MULTICAST_LOOP
+	proto := syscall.IPPROTO_IPV6
+	multic := syscall.IPV6_MULTICAST_LOOP
 	if isIPv4 {
 		ipKind = "udp4"
-		proto = syscall.IPPROTO_IPV6
-		multic = syscall.IPV6_MULTICAST_LOOP
+		proto = syscall.IPPROTO_IP
+		multic = syscall.IP_MULTICAST_LOOP
 	}
 	c, err := net.ListenMulticastUDP(ipKind, nil, addr)
 	if err != nil {
@@ -113,7 +112,7 @@ func listenOn(addr *net.UDPAddr, isIPv4 bool) {
 	}
 	err = syscall.SetsockoptInt(int(f.Fd()), proto, multic, 1)
 	if err != nil {
-		log.Fatal("--3--", err)
+		log.Fatal(ipKind, "--3--", err)
 	}
 	buf := make([]byte, 2048)
 	for {
