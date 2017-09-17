@@ -112,7 +112,7 @@ func listenOn(addr *net.UDPAddr, isIPv4 bool) {
 	}
 	err = syscall.SetsockoptInt(int(f.Fd()), proto, multic, 1)
 	if err != nil {
-		log.Fatal(ipKind, "--3--", err)
+		log.Println(ipKind, "--3--", err)
 	}
 	buf := make([]byte, 2048)
 	for {
