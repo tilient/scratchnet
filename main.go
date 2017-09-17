@@ -58,14 +58,16 @@ func senders() {
 						IP:   bip,
 						Port: port,
 					}
-					udpSocket, _ := net.DialUDP("udp4", nil, addr)
-					data := []byte("scratchnet")
-					go func() {
-						for {
-							udpSocket.Write(data)
-							time.Sleep(5 * time.Second)
-						}
-					}()
+					udpSocket, err := net.DialUDP("udp4", nil, addr)
+					if err == nil {
+						data := []byte("scratchnet")
+						go func() {
+							for {
+								udpSocket.Write(data)
+								time.Sleep(5 * time.Second)
+							}
+						}()
+					}
 				}
 			}
 		}
