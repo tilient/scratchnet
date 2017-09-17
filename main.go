@@ -68,6 +68,10 @@ func cleanUp() {
 			}
 			peers[ip] = t - 5
 		}
+		fmt.Println("Peers:")
+		for k, v := range peers {
+			fmt.Println(" ", k, "->", v)
+		}
 		time.Sleep(5 * time.Second)
 	}
 }
@@ -84,7 +88,6 @@ func broadcastOn(addr *net.UDPAddr, isIPv4 bool) {
 	}
 	msg := []byte("scratchnet")
 	for {
-		fmt.Println("Peers:", peers)
 		c.Write(msg)
 		time.Sleep(15 * time.Second)
 	}
@@ -119,7 +122,7 @@ func listenOn(addr *net.UDPAddr, isIPv4 bool) {
 		if err != nil {
 			log.Fatal("--4--", err)
 		}
-		peers[string(addr.IP)] = 60
+		peers[addr.IP.String()] = 60
 	}
 }
 
