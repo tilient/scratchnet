@@ -66,7 +66,7 @@ func senders() {
 						Port: port,
 					}
 					udpSocket, _ := net.DialUDP("udp4", nil, addr)
-					data := []byte("ping\n" + ip.String() + "\n")
+					data := []byte(ip.String())
 					go func() {
 						for {
 							udpSocket.Write(data)
@@ -89,10 +89,10 @@ func listener() {
 	}
 	for {
 		data := make([]byte, 256)
-		n, _, _ := socket.ReadFromUDP(data)
+		n, addr, _ := socket.ReadFromUDP(data)
 		str := strings.TrimSpace(string(data[:n]))
-		strs := strings.Split(str, "\n")
-		fmt.Println(">>", strs)
+		fmt.Println(">>", str)
+		fmt.Println("--", addr.IP.String())
 	}
 }
 
