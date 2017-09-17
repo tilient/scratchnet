@@ -12,11 +12,13 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
-	"syscall"
+	"sync"
 	"time"
 	"unsafe"
 
 	"github.com/GeertJohan/go.rice"
+	"golang.org/x/net/ipv4"
+	"golang.org/x/net/ipv6"
 	"golang.org/x/net/websocket"
 )
 
@@ -46,41 +48,112 @@ var (
 		IP:   net.IPv6linklocalallnodes,
 		Port: 56865,
 	}
-	peers map[string]int = make(map[string]int)
+	peers      map[string]int = make(map[string]int)
+	peersMutex sync.Mutex
 )
 
 func broadcast() {
 	for _, ifi := range multicastInterfaces() {
-		ipv4addr := &net.UDPAddr{
-			IP:   net.IPv4allsys,
-			Port: 56865,
-			Zone: ifi,
-		}
+		//ipv4addr := &net.UDPAddr{
+		//	IP:   net.IPv4allsys,
+		//	Port: 56865,
+		//	Zone: ifi,
+		//}
 		ipv6addr := &net.UDPAddr{
 			IP:   net.IPv6linklocalallnodes,
 			Port: 56865,
 			Zone: ifi,
 		}
-		go broadcastOn(ipv4addr, true)
-		go broadcastOn(ipv6addr, false)
+		//go broadcastOn(ipv4addr, true)
+		//go broadcastOn(ipv6addr, false)
+		fmt.Println(ipv6addr)
+	}
+}
+
+func listenIPv4() {
+	c, err := net.ListenPacket("udp4", "0.0.0.0:56865")
+	if err != nil {
+		log.Fatal("listenIPv4", err)
+	}
+	//defer c.Close()
+	p := ipv4.NewPacketConn(c)
+	p.SetMulticastLoopback(true)
+	for _, ifiname := range multicastInterfaces() {
+		ifi, _ := net.InterfaceByName(ifiname)
+		fmt.Println("listenIPv4: ", ifiname)
+		err := p.JoinGroup(
+			ifi, &net.UDPAddr{IP: net.IPv4allsys})
+		if err != nil {
+			fmt.Println("ERR listenIPv4: ", err)
+		}
+	}
+	go func() {
+		buf := make([]byte, 2048)
+		for {
+			_, _, addr, err := p.ReadFrom(buf)
+			if err != nil {
+				log.Println("XXXXX", err)
+			}
+			host, _, err := net.SplitHostPort(addr.String())
+			if err != nil {
+				log.Println("ZZZZ", err)
+			}
+			fmt.Println("listenIPv4: ", host)
+			peersMutex.Lock()
+			peers[host] = 60
+			peersMutex.Unlock()
+		}
+	}()
+	dst := &net.UDPAddr{IP: net.IPv4allsys, Port: 56865}
+	data := []byte("scratchnet")
+	go func() {
+		for {
+			_, err := p.WriteTo(data, nil, dst)
+			if err != nil {
+				log.Println("broadcastIPv4", err)
+			}
+			time.Sleep(15 * time.Second)
+		}
+	}()
+}
+
+func listenIPv6() {
+	c, err := net.ListenPacket("udp6", "[::]:56865")
+	if err != nil {
+		log.Fatal("listenIPv6", err)
+	}
+	defer c.Close()
+	p := ipv6.NewPacketConn(c)
+	for _, ifiname := range multicastInterfaces() {
+		ifi, _ := net.InterfaceByName(ifiname)
+		fmt.Println("listenIPv6: ", ifiname)
+		err := p.JoinGroup(
+			ifi, &net.UDPAddr{IP: net.IPv6linklocalallnodes})
+		if err != nil {
+			fmt.Println("ERR listenIPv6: ", err)
+		}
+	}
+	buf := make([]byte, 2048)
+	for {
+		_, _, addr, _ := p.ReadFrom(buf)
+		host, _, _ := net.SplitHostPort(addr.String())
+		parts := strings.Split(host, "%")
+		host = parts[0]
+		fmt.Println("listenIPv6: ", host)
+		peersMutex.Lock()
+		peers[host] = 60
+		peersMutex.Unlock()
 	}
 }
 
 func listen() {
-	ipv4addr := &net.UDPAddr{
-		IP:   net.IPv4allsys,
-		Port: 56865,
-	}
-	ipv6addr := &net.UDPAddr{
-		IP:   net.IPv6linklocalallnodes,
-		Port: 56865,
-	}
-	go listenOn(ipv4addr, true)
-	go listenOn(ipv6addr, false)
+	listenIPv4()
+	go listenIPv6()
 }
 
 func cleanUp() {
 	for {
+		peersMutex.Lock()
 		for ip, t := range peers {
 			if t < 0 {
 				delete(peers, ip)
@@ -92,12 +165,13 @@ func cleanUp() {
 		for k, v := range peers {
 			fmt.Println(" ", k, "->", v)
 		}
+		peersMutex.Unlock()
 		time.Sleep(5 * time.Second)
 	}
 }
 
 func broadcastOn(addr *net.UDPAddr, isIPv4 bool) {
-	fmt.Println("broadcastOn", addr)
+	fmt.Println("broadcastOn: ", addr)
 	ipKind := "udp6"
 	if isIPv4 {
 		ipKind = "udp4"
@@ -111,38 +185,6 @@ func broadcastOn(addr *net.UDPAddr, isIPv4 bool) {
 	for {
 		c.Write(msg)
 		time.Sleep(15 * time.Second)
-	}
-}
-
-func listenOn(addr *net.UDPAddr, isIPv4 bool) {
-	fmt.Println("listenOn", addr)
-	ipKind := "udp6"
-	proto := syscall.IPPROTO_IPV6
-	multic := syscall.IPV6_MULTICAST_LOOP
-	if isIPv4 {
-		ipKind = "udp4"
-		proto = syscall.IPPROTO_IP
-		multic = syscall.IP_MULTICAST_LOOP
-	}
-	c, err := net.ListenMulticastUDP(ipKind, nil, addr)
-	if err != nil {
-		log.Fatal("--1+-", err)
-	}
-	f, err := c.File()
-	if err != nil {
-		log.Fatal("--2--", err)
-	}
-	err = syscall.SetsockoptInt(int(f.Fd()), proto, multic, 1)
-	if err != nil {
-		log.Println(ipKind, "--3--", err)
-	}
-	buf := make([]byte, 2048)
-	for {
-		_, addr, err := c.ReadFromUDP(buf)
-		if err != nil {
-			log.Fatal("--4--", err)
-		}
-		peers[addr.IP.String()] = 60
 	}
 }
 
@@ -301,6 +343,7 @@ func sendMsgHandler(w http.ResponseWriter,
 	parts := strings.Split(r.RequestURI, "/")
 	msg := parts[2]
 	to := parts[3]
+	peersMutex.Lock()
 	for ip, _ := range peers {
 		resp, err := http.Get(
 			"http://" + ip + ":56765/sendMsgBasic/" + msg + "/" + to)
@@ -308,6 +351,7 @@ func sendMsgHandler(w http.ResponseWriter,
 			resp.Body.Close()
 		}
 	}
+	peersMutex.Unlock()
 }
 
 func waitMsgHandler(w http.ResponseWriter, r *http.Request) {
