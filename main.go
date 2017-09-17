@@ -65,8 +65,9 @@ func cleanUp() {
 		for ip, t := range peers {
 			if t < 0 {
 				delete(peers, ip)
+			} else {
+				peers[ip] = t - 5
 			}
-			peers[ip] = t - 5
 		}
 		fmt.Println("Peers:")
 		for k, v := range peers {
