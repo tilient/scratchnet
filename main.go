@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"context"
-	"encoding/binary"
 	"fmt"
 	"html/template"
 	"log"
@@ -13,6 +12,7 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+	"syscall"
 	"time"
 	"unsafe"
 
@@ -37,77 +37,79 @@ import "C"
 
 //---------------------------------------------------------
 
-const port = 56865
+var (
+	ipv4mcastaddr = &net.UDPAddr{
+		IP:   net.ParseIP("224.0.0.251"),
+		Port: 56865,
+	}
+	ipv6mcastaddr = &net.UDPAddr{
+		IP:   net.ParseIP("ff02::fb"),
+		Port: 56865,
+	}
+	peers map[string]int = make(map[string]int)
+)
 
-var udpSockets []*net.UDPConn
+func broadcast() {
+	go broadcastOn(ipv4mcastaddr)
+	go broadcastOn(ipv6mcastaddr)
+}
 
-func senders() {
-	interfaces, _ := net.Interfaces()
-	for _, intf := range interfaces {
-		if (intf.Flags & net.FlagBroadcast) > 0 {
-			addrs, _ := intf.Addrs()
-			for _, addr := range addrs {
-				ip, ipnet, _ := net.ParseCIDR(addr.String())
-				bip := broadcastIP(ipnet)
-				if len(bip) > 0 {
-					addr := &net.UDPAddr{
-						IP:   bip,
-						Port: port,
-					}
-					udpSocket, _ := net.DialUDP("udp4", nil, addr)
-					udpSockets = append(udpSockets, udpSocket)
-					data := []byte("ping\n" + ip.String() + "\n")
-					go func() {
-						for {
-							udpSocket.Write(data)
-							time.Sleep(15 * time.Second)
-						}
-					}()
-				}
+func listen() {
+	go listenOn(ipv4mcastaddr, true)
+	go listenOn(ipv6mcastaddr, false)
+}
+
+func cleanUp() {
+	for {
+		for ip, t := range peers {
+			if t < 0 {
+				delete(peers, ip)
 			}
+			peers[ip] = t - 5
 		}
+		time.Sleep(5 * time.Second)
 	}
 }
 
-func udpSend(strs ...string) {
-	data := []byte(strings.Join(strs, "\n"))
-	for _, udpSocket := range udpSockets {
-		udpSocket.Write(data)
-	}
-}
-
-func listener() {
-	socket, err := net.ListenUDP("udp4", &net.UDPAddr{
-		IP:   net.IPv4(0, 0, 0, 0),
-		Port: port,
-	})
+func broadcastOn(addr *net.UDPAddr) {
+	c, err := net.DialUDP("udp", nil, addr)
 	if err != nil {
 		log.Fatal(err)
 	}
+	msg := []byte("scratchnet")
 	for {
-		data := make([]byte, 256)
-		n, _, _ := socket.ReadFromUDP(data)
-		str := strings.TrimSpace(string(data[:n]))
-		strs := strings.Split(str, "\n")
-		fmt.Println(">>", strs)
-		switch strs[0] {
-		case "send":
-			udpSendMsgHandler(strs)
-		default:
-			fmt.Println("NYI", strs)
-		}
+		c.Write(msg)
+		time.Sleep(15 * time.Second)
 	}
 }
 
-func broadcastIP(n *net.IPNet) net.IP {
-	if n.IP.To4() == nil {
-		return net.IP{}
+func listenOn(addr *net.UDPAddr, isIPv4 bool) {
+	c, err := net.ListenMulticastUDP("udp", nil, addr)
+	if err != nil {
+		log.Fatal(err)
 	}
-	ip := make(net.IP, len(n.IP.To4()))
-	a := binary.BigEndian.Uint32(n.IP.To4())
-	b := binary.BigEndian.Uint32(net.IP(n.Mask).To4())
-	binary.BigEndian.PutUint32(ip, a|^b)
-	return ip
+	f, err := c.File()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if isIPv4 {
+		err = syscall.SetsockoptInt(int(f.Fd()),
+			syscall.IPPROTO_IP, syscall.IP_MULTICAST_LOOP, 1)
+	} else {
+		err = syscall.SetsockoptInt(int(f.Fd()),
+			syscall.IPPROTO_IPV6, syscall.IPV6_MULTICAST_LOOP, 1)
+	}
+	if err != nil {
+		log.Fatal(err)
+	}
+	buf := make([]byte, 2048)
+	for {
+		_, addr, err := c.ReadFromUDP(buf)
+		if err != nil {
+			log.Fatal(err)
+		}
+		peers[string(addr.IP)] = 60
+	}
 }
 
 //---------------------------------------------------------
@@ -240,7 +242,9 @@ func resetHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w)
 }
 
-func udpSendMsgHandler(parts []string) {
+func sendMsgBasicHandler(w http.ResponseWriter,
+	r *http.Request) {
+	parts := strings.Split(r.RequestURI, "/")
 	msg := parts[1]
 	to := parts[2]
 	msgs[to] = msg
@@ -252,7 +256,13 @@ func sendMsgHandler(w http.ResponseWriter,
 	parts := strings.Split(r.RequestURI, "/")
 	msg := parts[2]
 	to := parts[3]
-	udpSend("send", msg, to)
+	for ip, _ := range peers {
+		resp, err := http.Get(
+			"http://" + ip + ":56765/sendMsgBasic/" + msg + "/" + to)
+		if err == nil {
+			resp.Body.Close()
+		}
+	}
 }
 
 func waitMsgHandler(w http.ResponseWriter, r *http.Request) {
@@ -294,6 +304,7 @@ func main() {
 	http.HandleFunc("/poll", pollHandler)
 	http.HandleFunc("/reset_all", resetHandler)
 	http.HandleFunc("/sendMsg/", sendMsgHandler)
+	http.HandleFunc("/sendMsgBasic/", sendMsgBasicHandler)
 	http.HandleFunc("/waitMsg/", waitMsgHandler)
 
 	serv = &http.Server{
@@ -303,10 +314,11 @@ func main() {
 		MaxHeaderBytes: 1 << 20,
 	}
 
-	senders()
-	go listener()
 	go openWebview()
 
+	listen()
+	broadcast()
+	go cleanUp()
 	log.Fatal(serv.ListenAndServe())
 }
 
