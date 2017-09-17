@@ -50,13 +50,33 @@ var (
 )
 
 func broadcast() {
-	go broadcastOn(ipv4mcastaddr, true)
-	go broadcastOn(ipv6mcastaddr, false)
+	for _, ifi := range multicastInterfaces() {
+		ipv4addr := &net.UDPAddr{
+			IP:   net.IPv4allsys,
+			Port: 56865,
+			Zone: ifi,
+		}
+		ipv6addr := &net.UDPAddr{
+			IP:   net.IPv6linklocalallnodes,
+			Port: 56865,
+			Zone: ifi,
+		}
+		go broadcastOn(ipv4addr, true)
+		go broadcastOn(ipv6addr, false)
+	}
 }
 
 func listen() {
-	go listenOn(ipv4mcastaddr, true)
-	go listenOn(ipv6mcastaddr, false)
+	ipv4addr := &net.UDPAddr{
+		IP:   net.IPv4allsys,
+		Port: 56865,
+	}
+	ipv6addr := &net.UDPAddr{
+		IP:   net.IPv6linklocalallnodes,
+		Port: 56865,
+	}
+	go listenOn(ipv4addr, true)
+	go listenOn(ipv6addr, false)
 }
 
 func cleanUp() {
@@ -77,6 +97,7 @@ func cleanUp() {
 }
 
 func broadcastOn(addr *net.UDPAddr, isIPv4 bool) {
+	fmt.Println("broadcastOn", addr)
 	ipKind := "udp6"
 	if isIPv4 {
 		ipKind = "udp4"
@@ -94,6 +115,7 @@ func broadcastOn(addr *net.UDPAddr, isIPv4 bool) {
 }
 
 func listenOn(addr *net.UDPAddr, isIPv4 bool) {
+	fmt.Println("listenOn", addr)
 	ipKind := "udp6"
 	proto := syscall.IPPROTO_IPV6
 	multic := syscall.IPV6_MULTICAST_LOOP
@@ -122,6 +144,17 @@ func listenOn(addr *net.UDPAddr, isIPv4 bool) {
 		}
 		peers[addr.IP.String()] = 60
 	}
+}
+
+func multicastInterfaces() []string {
+	ifis := []string{}
+	interfaces, _ := net.Interfaces()
+	for _, ifi := range interfaces {
+		if (ifi.Flags & net.FlagMulticast) > 0 {
+			ifis = append(ifis, ifi.Name)
+		}
+	}
+	return ifis
 }
 
 //---------------------------------------------------------
