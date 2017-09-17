@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/binary"
 	"fmt"
 	"html/template"
 	"log"
@@ -37,50 +38,73 @@ import "C"
 
 //---------------------------------------------------------
 
+func main() {
+	senders()
+	listener()
+}
+
 var (
 	peers      map[string]int = make(map[string]int)
 	peersMutex sync.Mutex
 )
 
-func main() {
-	addr, _ := net.ResolveUDPAddr("udp4", "224.0.0.1:56865")
-	conn, _ := net.ListenMulticastUDP("udp4", nil, addr)
-	go func() {
-		b := make([]byte, 2048)
-		for {
-			n, raddr, _ := conn.ReadFromUDP(b)
-			host, _, _ := net.SplitHostPort(raddr.String())
-			fmt.Println("host: ", host, " >> ", string(b[:n]))
-			peersMutex.Lock()
-			peers[host] = 60
-			peersMutex.Unlock()
-		}
-	}()
+//---------------------------------------------------------
 
-	ad, _ := net.ResolveUDPAddr("udp4", "224.0.0.1:56865")
-	c, _ := net.DialUDP("udp4", nil, ad)
-	msg := []byte("scratchnet")
-	go func() {
-		for {
-			c.Write(msg)
-			time.Sleep(5 * time.Second)
-		}
-	}()
-	for {
-		fmt.Println("peers:")
-		peersMutex.Lock()
-		peers["127.0.0.1"] = 60
-		for k, v := range peers {
-			fmt.Println(" ", k, " - ", v)
-			if v <= 0 {
-				delete(peers, k)
-			} else {
-				peers[k] = v - 15
+const port = 56865
+
+func senders() {
+	interfaces, _ := net.Interfaces()
+	for _, intf := range interfaces {
+		if (intf.Flags & net.FlagBroadcast) > 0 {
+			addrs, _ := intf.Addrs()
+			for _, addr := range addrs {
+				ip, ipnet, _ := net.ParseCIDR(addr.String())
+				bip := broadcastIP(ipnet)
+				if len(bip) > 0 {
+					addr := &net.UDPAddr{
+						IP:   bip,
+						Port: port,
+					}
+					udpSocket, _ := net.DialUDP("udp4", nil, addr)
+					data := []byte("ping\n" + ip.String() + "\n")
+					go func() {
+						for {
+							udpSocket.Write(data)
+							time.Sleep(5 * time.Second)
+						}
+					}()
+				}
 			}
 		}
-		peersMutex.Unlock()
-		time.Sleep(15 * time.Second)
 	}
+}
+
+func listener() {
+	socket, err := net.ListenUDP("udp4", &net.UDPAddr{
+		IP:   net.IPv4(0, 0, 0, 0),
+		Port: port,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	for {
+		data := make([]byte, 256)
+		n, _, _ := socket.ReadFromUDP(data)
+		str := strings.TrimSpace(string(data[:n]))
+		strs := strings.Split(str, "\n")
+		fmt.Println(">>", strs)
+	}
+}
+
+func broadcastIP(n *net.IPNet) net.IP {
+	if n.IP.To4() == nil {
+		return net.IP{}
+	}
+	ip := make(net.IP, len(n.IP.To4()))
+	a := binary.BigEndian.Uint32(n.IP.To4())
+	b := binary.BigEndian.Uint32(net.IP(n.Mask).To4())
+	binary.BigEndian.PutUint32(ip, a|^b)
+	return ip
 }
 
 //---------------------------------------------------------
