@@ -43,6 +43,7 @@ var (
 		Port: 56865,
 	}
 	ipv6mcastaddr = &net.UDPAddr{
+		//IP:   net.ParseIP("ff02::fb"),
 		IP:   net.ParseIP("ff02::fb"),
 		Port: 56865,
 	}
@@ -50,8 +51,8 @@ var (
 )
 
 func broadcast() {
-	go broadcastOn(ipv4mcastaddr)
-	go broadcastOn(ipv6mcastaddr)
+	go broadcastOn(ipv4mcastaddr, true)
+	go broadcastOn(ipv6mcastaddr, false)
 }
 
 func listen() {
@@ -71,10 +72,15 @@ func cleanUp() {
 	}
 }
 
-func broadcastOn(addr *net.UDPAddr) {
-	c, err := net.DialUDP("udp", nil, addr)
+func broadcastOn(addr *net.UDPAddr, isIPv4 bool) {
+	ipKind := "udp6"
+	if isIPv4 {
+		ipKind = "udp4"
+	}
+	c, err := net.DialUDP(ipKind, nil, addr)
 	if err != nil {
-		log.Fatal("--1--", err)
+		log.Println("--11--", err)
+		return
 	}
 	msg := []byte("scratchnet")
 	for {
@@ -85,9 +91,13 @@ func broadcastOn(addr *net.UDPAddr) {
 }
 
 func listenOn(addr *net.UDPAddr, isIPv4 bool) {
-	c, err := net.ListenMulticastUDP("udp", nil, addr)
+	ipKind := "udp6"
+	if isIPv4 {
+		ipKind = "udp4"
+	}
+	c, err := net.ListenMulticastUDP(ipKind, nil, addr)
 	if err != nil {
-		log.Fatal("--1--", err)
+		log.Fatal("--1+-", err)
 	}
 	f, err := c.File()
 	if err != nil {
