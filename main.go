@@ -43,34 +43,25 @@ var (
 	peersMutex sync.Mutex
 )
 
-const port = 56865
+const port = 56766
 
 func senders() {
-	interfaces, _ := net.Interfaces()
-	for _, intf := range interfaces {
-		if (intf.Flags & net.FlagBroadcast) > 0 {
-			addrs, _ := intf.Addrs()
-			for _, addr := range addrs {
-				_, ipnet, _ := net.ParseCIDR(addr.String())
-				bip := broadcastIP(ipnet)
-				if len(bip) > 0 {
-					addr := &net.UDPAddr{
-						IP:   bip,
-						Port: port,
-					}
-					udpSocket, err := net.DialUDP("udp4", nil, addr)
-					if err == nil {
-						data := []byte("scratchnet")
-						go func() {
-							for {
-								udpSocket.Write(data)
-								time.Sleep(5 * time.Second)
-							}
-						}()
-					}
-				}
-			}
+	scratchnetMarker := []byte("scratchnet")
+	for _, bip := range broadcastIPv4s() {
+		addr := &net.UDPAddr{
+			IP:   bip,
+			Port: port,
 		}
+		udpSocket, err := net.DialUDP("udp4", nil, addr)
+		if err != nil {
+			continue
+		}
+		go func() {
+			for {
+				udpSocket.Write(scratchnetMarker)
+				time.Sleep(5 * time.Second)
+			}
+		}()
 	}
 }
 
@@ -111,7 +102,26 @@ func cleanPeers() {
 	}
 }
 
-func broadcastIP(n *net.IPNet) net.IP {
+func broadcastIPv4s() []net.IP {
+	ips := []net.IP{}
+	interfaces, _ := net.Interfaces()
+	for _, intf := range interfaces {
+		if (intf.Flags & net.FlagBroadcast) == 0 {
+			continue
+		}
+		addrs, _ := intf.Addrs()
+		for _, addr := range addrs {
+			_, ipnet, _ := net.ParseCIDR(addr.String())
+			bip := broadcastIPv4(ipnet)
+			if len(bip) > 0 {
+				ips = append(ips, bip)
+			}
+		}
+	}
+	return ips
+}
+
+func broadcastIPv4(n *net.IPNet) net.IP {
 	if n.IP.To4() == nil {
 		return net.IP{}
 	}
@@ -268,12 +278,14 @@ func sendMsgHandler(w http.ResponseWriter,
 	to := parts[3]
 	peersMutex.Lock()
 	for ip, _ := range peers {
-		url := "http://" + ip + ":56765/sendMsgBasic/" +
-			msg + "/" + to
-		resp, err := http.Get(url)
-		if err == nil {
-			resp.Body.Close()
-		}
+		go func(ip string) {
+			url := "http://" + ip + ":56765/"
+			url += "sendMsgBasic/" + msg + "/" + to
+			resp, err := http.Get(url)
+			if err == nil {
+				resp.Body.Close()
+			}
+		}(ip)
 	}
 	peersMutex.Unlock()
 }
